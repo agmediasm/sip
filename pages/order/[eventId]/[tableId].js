@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
-import { supabase, getEvent, getCategories, getMenuItems, getEventMenu, createOrder, createOrderItems, addTableHistory } from '../../../lib/supabase'
+import { supabase, getEvent, getCategories, getMenuItems, getEventMenu, createOrder, createOrderItems, getTableOrders } from '../../../lib/supabase'
 
 const colors = {
   noir: '#08080a', onyx: '#1a1a1c', champagne: '#d4af37', platinum: '#e5e4e2', ivory: '#fffff0',
@@ -22,6 +22,8 @@ export default function OrderPage() {
   const [selectedCat, setSelectedCat] = useState(null)
   const [cart, setCart] = useState([])
   const [showCart, setShowCart] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [orderHistory, setOrderHistory] = useState([])
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [paymentType, setPaymentType] = useState(null)
 
@@ -57,12 +59,20 @@ export default function OrderPage() {
       const { data: em } = await getEventMenu(eventId)
       if (em) setEventMenu(em)
 
+      // Get order history for this table
+      await loadHistory()
+
       setLoading(false)
       setTimeout(() => setScreen('welcome'), 2000)
     } catch (error) {
       console.error('Error:', error)
       setLoading(false)
     }
+  }
+
+  const loadHistory = async () => {
+    const { data } = await getTableOrders(tableId)
+    if (data) setOrderHistory(data)
   }
 
   const getPrice = (item) => {
@@ -158,9 +168,12 @@ export default function OrderPage() {
             <span style={{width:'1px', height:'20px', backgroundColor:colors.border}} />
             <span style={{fontSize:'12px', letterSpacing:'2px', color:colors.platinum}}>{table?.table_number}</span>
           </div>
-          <button onClick={() => setShowCart(true)} style={{position:'relative', padding:'12px', border:`1px solid ${colors.champagne}`, backgroundColor:colors.champagne, color:colors.noir}}>
-            🛒 {cartCount > 0 && <span style={{position:'absolute', top:'-8px', right:'-8px', width:'20px', height:'20px', backgroundColor:colors.noir, color:colors.champagne, border:`1px solid ${colors.champagne}`, fontSize:'10px', display:'flex', alignItems:'center', justifyContent:'center'}}>{cartCount}</span>}
-          </button>
+          <div style={{display:'flex', gap:'8px'}}>
+            <button onClick={() => { loadHistory(); setShowHistory(true) }} style={{padding:'12px', border:`1px solid ${colors.border}`, backgroundColor:'transparent', color:colors.platinum, fontSize:'14px'}}>📋</button>
+            <button onClick={() => setShowCart(true)} style={{position:'relative', padding:'12px', border:`1px solid ${colors.champagne}`, backgroundColor:colors.champagne, color:colors.noir}}>
+              🛒 {cartCount > 0 && <span style={{position:'absolute', top:'-8px', right:'-8px', width:'20px', height:'20px', backgroundColor:colors.noir, color:colors.champagne, border:`1px solid ${colors.champagne}`, fontSize:'10px', display:'flex', alignItems:'center', justifyContent:'center'}}>{cartCount}</span>}
+            </button>
+          </div>
         </div>
         <div style={s.categories}>
           {categories.map(cat => (
@@ -254,6 +267,48 @@ export default function OrderPage() {
             <div style={{fontSize:'48px', marginBottom:'20px'}}>✓</div>
             <h3 style={{fontSize:'14px', letterSpacing:'3px', textTransform:'uppercase', marginBottom:'12px'}}>{paymentType === 'card' ? 'Order Confirmed' : 'Staff Notified'}</h3>
             <p style={{color:colors.textMuted, fontSize:'13px', lineHeight:'1.7'}}>{paymentType === 'card' ? 'A member of our team will arrive with the POS terminal.' : 'Your order is placed. Staff will arrive to collect payment.'}</p>
+          </div>
+        </>
+      )}
+
+      {/* Order History Modal */}
+      {showHistory && (
+        <>
+          <div style={s.modal} onClick={() => setShowHistory(false)} />
+          <div style={s.cartModal}>
+            <div style={{padding:'16px', borderBottom:`1px solid ${colors.border}`, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <div><h2 style={{fontSize:'14px', letterSpacing:'3px', textTransform:'uppercase', margin:0}}>Order History</h2><p style={{fontSize:'11px', color:colors.textMuted, margin:'4px 0 0'}}>{table?.table_number}</p></div>
+              <button onClick={() => setShowHistory(false)} style={{background:'none', border:'none', color:colors.platinum, fontSize:'20px', cursor:'pointer'}}>✕</button>
+            </div>
+            <div style={{padding:'16px', flex:1, overflowY:'auto'}}>
+              {orderHistory.length === 0 ? (
+                <div style={{textAlign:'center', padding:'32px', color:colors.textMuted}}>
+                  <div style={{fontSize:'32px', marginBottom:'12px'}}>📋</div>
+                  <p>No orders yet</p>
+                </div>
+              ) : (
+                orderHistory.map(order => (
+                  <div key={order.id} style={{padding:'16px', borderBottom:`1px solid ${colors.border}`, marginBottom:'12px'}}>
+                    <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}>
+                      <span style={{fontSize:'11px', color:colors.textMuted}}>{new Date(order.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span style={{fontSize:'10px', padding:'2px 8px', backgroundColor: order.payment_status === 'paid' ? 'rgba(34,197,94,0.2)' : order.status === 'new' ? 'rgba(239,68,68,0.2)' : 'rgba(212,175,55,0.2)', color: order.payment_status === 'paid' ? '#22c55e' : order.status === 'new' ? '#ef4444' : colors.champagne, borderRadius:'4px'}}>
+                        {order.payment_status === 'paid' ? '✓ Paid' : order.status === 'new' ? 'Pending' : order.status === 'preparing' ? 'Preparing' : 'Ready'}
+                      </span>
+                    </div>
+                    {order.order_items?.map((item, i) => (
+                      <div key={i} style={{display:'flex', justifyContent:'space-between', fontSize:'13px', padding:'4px 0'}}>
+                        <span>{item.quantity}× {item.name}</span>
+                        <span style={{color:colors.textMuted}}>{item.subtotal} LEI</span>
+                      </div>
+                    ))}
+                    <div style={{marginTop:'8px', paddingTop:'8px', borderTop:`1px solid ${colors.border}`, display:'flex', justifyContent:'space-between'}}>
+                      <span style={{fontSize:'11px', color:colors.textMuted}}>{order.payment_type === 'cash' ? '💵 Cash' : '💳 Card'}</span>
+                      <span style={{fontWeight:'500', color:colors.champagne}}>{order.total} LEI</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </>
       )}
