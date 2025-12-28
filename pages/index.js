@@ -16,8 +16,21 @@ export default function Home() {
       fontSize: '64px',
       fontWeight: '300',
       letterSpacing: '24px',
+      paddingLeft: '12px',
       color: '#d4af37',
-      marginBottom: '16px',
+      marginBottom: '24px',
+    },
+    line: {
+      width: '80px',
+      height: '1px',
+      backgroundColor: '#d4af37',
+      marginBottom: '24px',
+      opacity: 0.6,
+    },
+    subLogo: {
+      width: '140px',
+      opacity: 0.85,
+      marginBottom: '48px',
     },
     tagline: {
       fontSize: '11px',
@@ -25,13 +38,6 @@ export default function Home() {
       color: '#e5e4e2',
       textTransform: 'uppercase',
       marginBottom: '48px',
-    },
-    line: {
-      width: '80px',
-      height: '1px',
-      backgroundColor: '#d4af37',
-      marginBottom: '48px',
-      opacity: 0.5,
     },
     nav: {
       display: 'flex',
@@ -71,11 +77,16 @@ export default function Home() {
       <main style={styles.container}>
         <h1 style={styles.logo}>S I P</h1>
         <div style={styles.line} />
+        <img
+          src="/intooit-white.png"
+          alt="INTOOIT"
+          style={styles.subLogo}
+        />
         <p style={styles.tagline}>Elevate the Night</p>
 
         <nav style={styles.nav}>
-          <Link 
-            href="/menu/SIP-VIP1" 
+          <Link
+            href="/menu/SIP-VIP1"
             style={styles.link}
             onMouseOver={(e) => {
               e.target.style.borderColor = '#d4af37'
@@ -88,9 +99,9 @@ export default function Home() {
           >
             Demo Client (VIP 1)
           </Link>
-          
-          <Link 
-            href="/staff" 
+
+          <Link
+            href="/staff"
             style={styles.link}
             onMouseOver={(e) => {
               e.target.style.borderColor = '#d4af37'
@@ -103,9 +114,9 @@ export default function Home() {
           >
             Staff Dashboard
           </Link>
-          
-          <Link 
-            href="/manager" 
+
+          <Link
+            href="/manager"
             style={styles.link}
             onMouseOver={(e) => {
               e.target.style.borderColor = '#d4af37'
