@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
-import { supabase, getEvents, createEvent, updateEvent, deleteEvent, getEventTables, createEventTable, updateEventTable, deleteEventTable, getMenuItems, getEventMenu, setEventMenuPrice, getWaiters, createWaiter, deleteWaiter, getEventWaiters, addWaiterToEvent, removeWaiterFromEvent, getTableAssignments, assignTableToWaiter, getCustomers, getAnalytics, getEventAnalytics, getWaiterLeaderboard, getEventReservations, createReservation, deleteReservation } from '../lib/supabase'
+import { supabase, getEvents, createEvent, deleteEvent, getEventTables, createEventTable, deleteEventTable, getMenuItems, getEventMenu, setEventMenuPrice, getWaiters, createWaiter, deleteWaiter, getEventWaiters, addWaiterToEvent, removeWaiterFromEvent, getTableAssignments, assignTableToWaiter, getCustomers, getAnalytics, getEventAnalytics, getWaiterLeaderboard, getEventReservations, createReservation, deleteReservation } from '../lib/supabase'
 
 const VENUE_ID = '11111111-1111-1111-1111-111111111111'
 const APP_URL = typeof window !== 'undefined' ? window.location.origin : ''
@@ -43,7 +43,6 @@ export default function ManagerDashboard() {
   const [tableAssignments, setTableAssignments] = useState([])
   const [customers, setCustomers] = useState([])
   const [analytics, setAnalytics] = useState({})
-  const [eventAnalytics, setEventAnalytics] = useState({})
   const [leaderboard, setLeaderboard] = useState([])
   const [loading, setLoading] = useState(true)
   const [analyticsPeriod, setAnalyticsPeriod] = useState('month')
@@ -54,13 +53,13 @@ export default function ManagerDashboard() {
   const [showReservationModal, setShowReservationModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
   const [selectedCell, setSelectedCell] = useState(null)
+  const [selectedTableForRes, setSelectedTableForRes] = useState(null)
   const [eventForm, setEventForm] = useState({ name: '', event_date: '', start_time: '22:00', description: '' })
   const [waiterForm, setWaiterForm] = useState({ name: '', phone: '' })
   const [tableType, setTableType] = useState('normal')
-  const [reservationForm, setReservationForm] = useState({ customer_name: '', customer_phone: '', party_size: 2, reservation_time: '22:00', notes: '', is_vip: false, event_table_id: '' })
+  const [reservationForm, setReservationForm] = useState({ customer_name: '', customer_phone: '', party_size: 2, reservation_time: '22:00', notes: '', is_vip: false })
   const [productForm, setProductForm] = useState({ name: '', description: '', default_price: '', category_id: '' })
   const [categories, setCategories] = useState([])
-  const [selectedCustomers, setSelectedCustomers] = useState([])
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 900)
@@ -89,10 +88,9 @@ export default function ManagerDashboard() {
   }
 
   const loadEventData = async (eventId) => {
-    const [tablesRes, ewRes, assignRes, emRes, eaRes, lbRes, resRes] = await Promise.all([
+    const [tablesRes, ewRes, assignRes, emRes, lbRes, resRes] = await Promise.all([
       getEventTables(eventId), getEventWaiters(eventId), getTableAssignments(eventId),
-      getEventMenu(eventId), getEventAnalytics(eventId), getWaiterLeaderboard(eventId),
-      getEventReservations(eventId)
+      getEventMenu(eventId), getWaiterLeaderboard(eventId), getEventReservations(eventId)
     ])
     if (tablesRes.data) {
       setEventTables(tablesRes.data)
@@ -110,7 +108,6 @@ export default function ManagerDashboard() {
     if (ewRes.data) setEventWaiters(ewRes.data)
     if (assignRes.data) setTableAssignments(assignRes.data)
     if (emRes.data) setEventMenu(emRes.data)
-    if (eaRes) setEventAnalytics(eaRes)
     if (lbRes) setLeaderboard(lbRes)
     if (resRes.data) setReservations(resRes.data)
   }
@@ -199,21 +196,37 @@ export default function ManagerDashboard() {
     loadEventData(selectedEvent.id)
   }
 
+  // Click pe masă în rezervări
+  const handleTableClickForReservation = (table) => {
+    const hasRes = getTableReservation(table.id)
+    if (hasRes) {
+      // Dacă are rezervare, întreabă dacă vrea să șteargă
+      if (confirm(`Ștergi rezervarea pentru ${table.table_number}?\n${hasRes.customer_name} - ${hasRes.reservation_time}`)) {
+        handleDeleteReservation(hasRes.id)
+      }
+    } else {
+      // Dacă nu are rezervare, deschide modal
+      setSelectedTableForRes(table)
+      setReservationForm({ customer_name: '', customer_phone: '', party_size: 2, reservation_time: '22:00', notes: '', is_vip: false })
+      setShowReservationModal(true)
+    }
+  }
+
   const handleCreateReservation = async () => {
-    if (!reservationForm.customer_name || !reservationForm.event_table_id) return
+    if (!reservationForm.customer_name || !selectedTableForRes) return
     await createReservation({
-      venue_id: VENUE_ID, event_id: selectedEvent.id, event_table_id: reservationForm.event_table_id,
+      venue_id: VENUE_ID, event_id: selectedEvent.id, event_table_id: selectedTableForRes.id,
       customer_name: reservationForm.customer_name, customer_phone: reservationForm.customer_phone,
       party_size: reservationForm.party_size, reservation_time: reservationForm.reservation_time,
       notes: reservationForm.notes, is_vip: reservationForm.is_vip
     })
     setShowReservationModal(false)
-    setReservationForm({ customer_name: '', customer_phone: '', party_size: 2, reservation_time: '22:00', notes: '', is_vip: false, event_table_id: '' })
+    setSelectedTableForRes(null)
+    setReservationForm({ customer_name: '', customer_phone: '', party_size: 2, reservation_time: '22:00', notes: '', is_vip: false })
     loadEventData(selectedEvent.id)
   }
 
   const handleDeleteReservation = async (resId) => {
-    if (!confirm('Ștergi rezervarea?')) return
     await deleteReservation(resId)
     loadEventData(selectedEvent.id)
   }
@@ -276,8 +289,8 @@ export default function ManagerDashboard() {
     stat: { backgroundColor: colors.onyx, border: `1px solid ${colors.border}`, padding: 18, borderRadius: 8, textAlign: 'center' },
     statVal: { fontSize: isDesktop ? 28 : 22, fontWeight: 300, color: colors.champagne },
     statLbl: { fontSize: 10, letterSpacing: 2, color: colors.textMuted, marginTop: 6, fontWeight: 600 },
-    zoneTabs: { display: 'flex', marginBottom: 16, border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' },
-    zoneTab: { flex: 1, padding: '12px 16px', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }
+    zoneTabs: { display: 'flex', marginBottom: 12, border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' },
+    zoneTab: { flex: 1, padding: '10px 16px', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer' }
   }
 
   const TABS = [
@@ -296,9 +309,9 @@ export default function ManagerDashboard() {
   const currentZoneTables = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
   const currentRows = activeZone === 'front' ? frontGridRows : backGridRows
   const currentCols = activeZone === 'front' ? frontGridCols : backGridCols
-  const availableTables = eventTables.filter(t => !getTableReservation(t.id))
 
-  const renderGrid = () => {
+  // GRID pentru LAYOUT (adăugare mese)
+  const renderLayoutGrid = () => {
     const cellSize = isDesktop ? 48 : 36
     const gap = 4
     return (
@@ -337,6 +350,63 @@ export default function ManagerDashboard() {
     )
   }
 
+  // GRID pentru REZERVĂRI (click pe masă = rezervă/șterge)
+  const renderReservationGrid = () => {
+    const cellSize = isDesktop ? 52 : 44
+    const gap = 5
+    return (
+      <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
+        <div style={s.zoneTabs}>
+          <button onClick={() => setActiveZone('front')} style={{...s.zoneTab, backgroundColor: activeZone === 'front' ? colors.champagne : 'transparent', color: activeZone === 'front' ? colors.noir : colors.textMuted}}>🎭 Față</button>
+          <button onClick={() => setActiveZone('back')} style={{...s.zoneTab, backgroundColor: activeZone === 'back' ? colors.champagne : 'transparent', color: activeZone === 'back' ? colors.noir : colors.textMuted}}>🎪 Spate</button>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${currentCols}, ${cellSize}px)`, gap, padding: 12, backgroundColor: colors.noir, border: `1px solid ${colors.border}`, borderRadius: 8, width: 'fit-content' }}>
+          {Array.from({ length: currentRows }).map((_, row) => (
+            Array.from({ length: currentCols }).map((_, col) => {
+              const table = currentZoneTables.find(t => t.grid_row === row && t.grid_col === col)
+              if (!table) return <div key={`${row}-${col}`} style={{ width: cellSize, height: cellSize }} />
+              
+              const cfg = TABLE_TYPES[table.table_type]
+              const hasRes = getTableReservation(table.id)
+              
+              return (
+                <div
+                  key={`${row}-${col}`}
+                  onClick={() => handleTableClickForReservation(table)}
+                  style={{
+                    width: cellSize,
+                    height: cellSize,
+                    border: `2px solid ${hasRes ? colors.warning : colors.success}`,
+                    borderRadius: table.table_type === 'bar' ? '50%' : 8,
+                    backgroundColor: hasRes ? `${colors.warning}30` : `${colors.success}20`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: hasRes ? colors.warning : colors.success,
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <span>{table.table_number}</span>
+                  <span style={{ fontSize: 8, marginTop: 2 }}>{hasRes ? '🔒' : '✓'}</span>
+                </div>
+              )
+            })
+          ))}
+        </div>
+        
+        <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 11, color: colors.textMuted }}>
+          <span>🟢 Liberă (click = rezervă)</span>
+          <span>🟠 Rezervată (click = șterge)</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={s.container}>
       <Head><title>S I P - Manager</title></Head>
@@ -368,11 +438,32 @@ export default function ManagerDashboard() {
           {events.map(ev => (<div key={ev.id} onClick={() => setSelectedEvent(ev)} style={{...s.card, cursor: 'pointer', borderColor: selectedEvent?.id === ev.id ? colors.champagne : colors.border}}><div style={{ display: 'flex', justifyContent: 'space-between' }}><div><div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>{ev.name}</div><div style={{ fontSize: 13, color: colors.textMuted }}>📅 {new Date(ev.event_date).toLocaleDateString('ro-RO', { weekday: 'short', day: 'numeric', month: 'short' })} • 🕐 {ev.start_time}</div></div><button onClick={(e) => handleDeleteEvent(e, ev.id)} style={{ background: 'none', border: 'none', color: colors.error, fontSize: 18, cursor: 'pointer' }}>✕</button></div></div>))}
         </>)}
 
-        {activeTab === 'layout' && (<>{!selectedEvent ? <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Selectează un eveniment</div> : <><div style={s.title}>{selectedEvent.name} - Layout</div>{renderGrid()}<div style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 12 }}>Click + adaugă • Click masă șterge</div></>}</>)}
+        {activeTab === 'layout' && (<>{!selectedEvent ? <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Selectează un eveniment</div> : <><div style={s.title}>{selectedEvent.name} - Layout</div>{renderLayoutGrid()}<div style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 12 }}>Click + adaugă • Click masă șterge</div></>}</>)}
 
         {activeTab === 'reservations' && (<>{!selectedEvent ? <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Selectează un eveniment</div> : <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}><div style={s.title}>Rezervări - {selectedEvent.name}</div><button onClick={() => setShowReservationModal(true)} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}} disabled={availableTables.length === 0}>+ Rezervare</button></div>
-          {reservations.length === 0 ? <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Nicio rezervare</div> : reservations.map(res => (<div key={res.id} style={s.card}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}><div style={{ display: 'flex', gap: 16, alignItems: 'center' }}><div style={{ width: 50, height: 50, backgroundColor: `${colors.champagne}20`, border: `2px solid ${colors.champagne}`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: colors.champagne }}>{res.event_tables?.table_number || '?'}</div><div><div style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>{res.customer_name} {res.is_vip && <span style={{ color: colors.champagne }}>⭐</span>}</div><div style={{ fontSize: 12, color: colors.textMuted }}>🕐 {res.reservation_time} • 👥 {res.party_size}p</div>{res.customer_phone && <div style={{ fontSize: 12, color: colors.textMuted }}>📱 {res.customer_phone}</div>}{res.notes && <div style={{ fontSize: 12, color: colors.warning, marginTop: 4 }}>📝 {res.notes}</div>}</div></div><button onClick={() => handleDeleteReservation(res.id)} style={{ background: 'none', border: 'none', color: colors.error, fontSize: 16, cursor: 'pointer' }}>✕</button></div></div>))}
+          <div style={s.title}>Rezervări - {selectedEvent.name} ({reservations.length})</div>
+          {renderReservationGrid()}
+          
+          {reservations.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <div style={s.title}>Lista rezervări</div>
+              {reservations.map(res => (
+                <div key={res.id} style={s.card}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <div style={{ width: 44, height: 44, backgroundColor: `${colors.warning}25`, border: `2px solid ${colors.warning}`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: colors.warning }}>{res.event_tables?.table_number || '?'}</div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 500 }}>{res.customer_name} {res.is_vip && <span style={{ color: colors.champagne }}>⭐</span>}</div>
+                        <div style={{ fontSize: 11, color: colors.textMuted }}>🕐 {res.reservation_time} • 👥 {res.party_size}p {res.customer_phone && `• 📱 ${res.customer_phone}`}</div>
+                        {res.notes && <div style={{ fontSize: 11, color: colors.warning }}>📝 {res.notes}</div>}
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteReservation(res.id)} style={{ background: 'none', border: 'none', color: colors.error, fontSize: 16, cursor: 'pointer' }}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>}</>)}
 
         {activeTab === 'menu' && (<>
@@ -399,13 +490,24 @@ export default function ManagerDashboard() {
         {activeTab === 'customers' && (<><div style={s.title}>👑 Top Clienți</div>{customers.map((c, i) => (<div key={c.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 16, color: i < 3 ? colors.champagne : colors.textMuted }}>{i < 3 ? '👑' : `#${i + 1}`}</span><div><div style={{ fontWeight: 500 }}>{c.name}</div><div style={{ fontSize: 12, color: colors.textMuted }}>{c.phone} • {c.visit_count} vizite</div></div></div><div style={{ color: colors.champagne, fontWeight: 600 }}>{c.total_spent?.toLocaleString()} LEI</div></div>))}</>)}
       </div>
 
+      {/* MODALS */}
       {showEventModal && (<div style={s.modal} onClick={() => setShowEventModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Eveniment nou</span><button onClick={() => setShowEventModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Nume</label><input type="text" value={eventForm.name} onChange={e => setEventForm({...eventForm, name: e.target.value})} placeholder="Revelion 2025" style={s.input} /><label style={s.label}>Data</label><input type="date" value={eventForm.event_date} onChange={e => setEventForm({...eventForm, event_date: e.target.value})} style={s.input} /><label style={s.label}>Ora</label><input type="time" value={eventForm.start_time} onChange={e => setEventForm({...eventForm, start_time: e.target.value})} style={s.input} /></div><div style={s.modalFoot}><button onClick={() => setShowEventModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateEvent} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Creează</button></div></div></div>)}
 
       {showWaiterModal && (<div style={s.modal} onClick={() => setShowWaiterModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Ospătar nou</span><button onClick={() => setShowWaiterModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Nume</label><input type="text" value={waiterForm.name} onChange={e => setWaiterForm({...waiterForm, name: e.target.value})} placeholder="Alexandru Pop" style={s.input} /><label style={s.label}>Telefon</label><input type="tel" value={waiterForm.phone} onChange={e => setWaiterForm({...waiterForm, phone: e.target.value})} placeholder="0722 111 111" style={s.input} /></div><div style={s.modalFoot}><button onClick={() => setShowWaiterModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateWaiter} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Adaugă</button></div></div></div>)}
 
       {showTableModal && selectedCell && (<div style={s.modal} onClick={() => { setShowTableModal(false); setSelectedCell(null) }}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Masă nouă ({activeZone === 'front' ? 'față' : 'spate'})</span><button onClick={() => { setShowTableModal(false); setSelectedCell(null) }} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Tip masă</label><div style={{ display: 'flex', gap: 10 }}>{Object.entries(TABLE_TYPES).map(([type, cfg]) => (<button key={type} onClick={() => setTableType(type)} style={{ flex: 1, padding: 16, border: `2px solid ${tableType === type ? cfg.color : colors.border}`, backgroundColor: tableType === type ? `${cfg.color}20` : 'transparent', color: cfg.color, borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>{cfg.label}</button>))}</div></div><div style={s.modalFoot}><button onClick={() => { setShowTableModal(false); setSelectedCell(null) }} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleAddTable} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Adaugă</button></div></div></div>)}
 
-      {showReservationModal && (<div style={s.modal} onClick={() => setShowReservationModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Rezervare nouă</span><button onClick={() => setShowReservationModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Masă</label><select value={reservationForm.event_table_id} onChange={e => setReservationForm({...reservationForm, event_table_id: e.target.value})} style={s.select}><option value="">Selectează...</option>{availableTables.map(t => <option key={t.id} value={t.id}>{t.table_number} ({t.capacity}p) - {t.zone === 'back' ? 'spate' : 'față'}</option>)}</select><label style={s.label}>Nume client</label><input type="text" value={reservationForm.customer_name} onChange={e => setReservationForm({...reservationForm, customer_name: e.target.value})} placeholder="Ion Popescu" style={s.input} /><label style={s.label}>Telefon</label><input type="tel" value={reservationForm.customer_phone} onChange={e => setReservationForm({...reservationForm, customer_phone: e.target.value})} placeholder="0722 123 456" style={s.input} /><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}><div><label style={s.label}>Ora</label><select value={reservationForm.reservation_time} onChange={e => setReservationForm({...reservationForm, reservation_time: e.target.value})} style={s.select}>{['20:00','21:00','22:00','23:00','00:00','01:00'].map(t => <option key={t} value={t}>{t}</option>)}</select></div><div><label style={s.label}>Persoane</label><select value={reservationForm.party_size} onChange={e => setReservationForm({...reservationForm, party_size: parseInt(e.target.value)})} style={s.select}>{[1,2,3,4,5,6,8,10,12].map(n => <option key={n} value={n}>{n}</option>)}</select></div></div><label style={s.label}>Note</label><input type="text" value={reservationForm.notes} onChange={e => setReservationForm({...reservationForm, notes: e.target.value})} placeholder="Aniversare..." style={s.input} /><div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setReservationForm({...reservationForm, is_vip: !reservationForm.is_vip})}><div style={{ width: 22, height: 22, border: `2px solid ${reservationForm.is_vip ? colors.champagne : colors.border}`, backgroundColor: reservationForm.is_vip ? colors.champagne : 'transparent', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.noir, fontSize: 14 }}>{reservationForm.is_vip && '✓'}</div><span>Client VIP ⭐</span></div></div><div style={s.modalFoot}><button onClick={() => setShowReservationModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateReservation} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Rezervă</button></div></div></div>)}
+      {showReservationModal && selectedTableForRes && (<div style={s.modal} onClick={() => { setShowReservationModal(false); setSelectedTableForRes(null) }}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Rezervare - {selectedTableForRes.table_number}</span><button onClick={() => { setShowReservationModal(false); setSelectedTableForRes(null) }} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}>
+        <div style={{ padding: 16, backgroundColor: `${colors.champagne}15`, border: `1px solid ${colors.champagne}`, borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: 24, fontWeight: 700, color: colors.champagne }}>{selectedTableForRes.table_number}</div>
+          <div style={{ fontSize: 12, color: colors.textMuted }}>{selectedTableForRes.capacity} persoane • {TABLE_TYPES[selectedTableForRes.table_type]?.label}</div>
+        </div>
+        <label style={s.label}>Nume client</label><input type="text" value={reservationForm.customer_name} onChange={e => setReservationForm({...reservationForm, customer_name: e.target.value})} placeholder="Ion Popescu" style={s.input} />
+        <label style={s.label}>Telefon</label><input type="tel" value={reservationForm.customer_phone} onChange={e => setReservationForm({...reservationForm, customer_phone: e.target.value})} placeholder="0722 123 456" style={s.input} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}><div><label style={s.label}>Ora</label><select value={reservationForm.reservation_time} onChange={e => setReservationForm({...reservationForm, reservation_time: e.target.value})} style={s.select}>{['20:00','21:00','22:00','23:00','00:00','01:00'].map(t => <option key={t} value={t}>{t}</option>)}</select></div><div><label style={s.label}>Persoane</label><select value={reservationForm.party_size} onChange={e => setReservationForm({...reservationForm, party_size: parseInt(e.target.value)})} style={s.select}>{[1,2,3,4,5,6,8,10,12].map(n => <option key={n} value={n}>{n}</option>)}</select></div></div>
+        <label style={s.label}>Note</label><input type="text" value={reservationForm.notes} onChange={e => setReservationForm({...reservationForm, notes: e.target.value})} placeholder="Aniversare..." style={s.input} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => setReservationForm({...reservationForm, is_vip: !reservationForm.is_vip})}><div style={{ width: 22, height: 22, border: `2px solid ${reservationForm.is_vip ? colors.champagne : colors.border}`, backgroundColor: reservationForm.is_vip ? colors.champagne : 'transparent', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.noir, fontSize: 14 }}>{reservationForm.is_vip && '✓'}</div><span>Client VIP ⭐</span></div>
+      </div><div style={s.modalFoot}><button onClick={() => { setShowReservationModal(false); setSelectedTableForRes(null) }} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateReservation} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Rezervă</button></div></div></div>)}
 
       {showProductModal && (<div style={s.modal} onClick={() => setShowProductModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Produs nou</span><button onClick={() => setShowProductModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Categorie</label><select value={productForm.category_id} onChange={e => setProductForm({...productForm, category_id: e.target.value})} style={s.select}><option value="">Selectează...</option>{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select><label style={s.label}>Nume</label><input type="text" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} placeholder="Mojito" style={s.input} /><label style={s.label}>Descriere</label><input type="text" value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} placeholder="Rum, mentă, lime" style={s.input} /><label style={s.label}>Preț (LEI)</label><input type="number" value={productForm.default_price} onChange={e => setProductForm({...productForm, default_price: e.target.value})} placeholder="45" style={s.input} /></div><div style={s.modalFoot}><button onClick={() => setShowProductModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateProduct} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Adaugă</button></div></div></div>)}
     </div>
