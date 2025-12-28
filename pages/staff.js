@@ -58,8 +58,21 @@ export default function StaffDashboard() {
     if (resRes.data) setReservations(resRes.data)
     if (assignRes.data) setTableAssignments(assignRes.data)
     
-    const { data: ordersData } = await supabase.from('orders').select('*, order_items(*), event_tables(*)')
-      .eq('event_id', selectedEvent.id).in('status', ['new', 'preparing', 'ready']).order('created_at', { ascending: false })
+    // Găsim mesele atribuite acestui ospătar
+    const myTableIds = assignRes.data?.filter(a => a.waiter_id === waiter?.id).map(a => a.event_table_id) || []
+    
+    // Încărcăm DOAR comenzile de la mesele ospătarului
+    let ordersQuery = supabase.from('orders').select('*, order_items(*), event_tables(*)')
+      .eq('event_id', selectedEvent.id)
+      .in('status', ['new', 'preparing', 'ready'])
+      .order('created_at', { ascending: false })
+    
+    // Dacă ospătarul are mese atribuite, filtrăm doar pe alea
+    if (myTableIds.length > 0) {
+      ordersQuery = ordersQuery.in('event_table_id', myTableIds)
+    }
+    
+    const { data: ordersData } = await ordersQuery
     if (ordersData) setOrders(ordersData)
   }
 
