@@ -12,26 +12,30 @@ export default function Home() {
       justifyContent: 'center',
       padding: '32px',
     },
+
     logo: {
       fontSize: '64px',
       fontWeight: '300',
       letterSpacing: '24px',
-      paddingLeft: '12px',
       color: '#d4af37',
       marginBottom: '24px',
+      transform: 'translateX(12px)', // FIX REAL DE CENTRARE OPTICĂ
     },
+
     line: {
       width: '80px',
       height: '1px',
       backgroundColor: '#d4af37',
-      marginBottom: '24px',
       opacity: 0.6,
+      marginBottom: '20px',
     },
+
     subLogo: {
       width: '140px',
       opacity: 0.85,
-      marginBottom: '48px',
+      marginBottom: '36px',
     },
+
     tagline: {
       fontSize: '11px',
       letterSpacing: '6px',
@@ -39,6 +43,7 @@ export default function Home() {
       textTransform: 'uppercase',
       marginBottom: '48px',
     },
+
     nav: {
       display: 'flex',
       flexDirection: 'column',
@@ -46,6 +51,7 @@ export default function Home() {
       width: '100%',
       maxWidth: '300px',
     },
+
     link: {
       display: 'block',
       padding: '18px 32px',
@@ -56,7 +62,9 @@ export default function Home() {
       textTransform: 'uppercase',
       textAlign: 'center',
       transition: 'all 0.3s ease',
+      cursor: 'pointer',
     },
+
     footer: {
       marginTop: '64px',
       fontSize: '10px',
@@ -65,37 +73,43 @@ export default function Home() {
     },
   }
 
+  const hoverIn = (e) => {
+    e.target.style.borderColor = '#d4af37'
+    e.target.style.color = '#d4af37'
+  }
+
+  const hoverOut = (e) => {
+    e.target.style.borderColor = 'rgba(255,255,255,0.2)'
+    e.target.style.color = '#e5e4e2'
+  }
+
   return (
     <>
       <Head>
         <title>S I P - Elevate the Night</title>
         <meta name="description" content="Premium nightlife ordering platform" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <main style={styles.container}>
         <h1 style={styles.logo}>S I P</h1>
+
         <div style={styles.line} />
+
         <img
           src="/intooit-white.png"
           alt="INTOOIT"
           style={styles.subLogo}
         />
+
         <p style={styles.tagline}>Elevate the Night</p>
 
         <nav style={styles.nav}>
           <Link
             href="/menu/SIP-VIP1"
             style={styles.link}
-            onMouseOver={(e) => {
-              e.target.style.borderColor = '#d4af37'
-              e.target.style.color = '#d4af37'
-            }}
-            onMouseOut={(e) => {
-              e.target.style.borderColor = 'rgba(255,255,255,0.1)'
-              e.target.style.color = '#e5e4e2'
-            }}
+            onMouseOver={hoverIn}
+            onMouseOut={hoverOut}
           >
             Demo Client (VIP 1)
           </Link>
@@ -103,14 +117,8 @@ export default function Home() {
           <Link
             href="/staff"
             style={styles.link}
-            onMouseOver={(e) => {
-              e.target.style.borderColor = '#d4af37'
-              e.target.style.color = '#d4af37'
-            }}
-            onMouseOut={(e) => {
-              e.target.style.borderColor = 'rgba(255,255,255,0.1)'
-              e.target.style.color = '#e5e4e2'
-            }}
+            onMouseOver={hoverIn}
+            onMouseOut={hoverOut}
           >
             Staff Dashboard
           </Link>
@@ -118,14 +126,8 @@ export default function Home() {
           <Link
             href="/manager"
             style={styles.link}
-            onMouseOver={(e) => {
-              e.target.style.borderColor = '#d4af37'
-              e.target.style.color = '#d4af37'
-            }}
-            onMouseOut={(e) => {
-              e.target.style.borderColor = 'rgba(255,255,255,0.1)'
-              e.target.style.color = '#e5e4e2'
-            }}
+            onMouseOver={hoverIn}
+            onMouseOut={hoverOut}
           >
             Manager Dashboard
           </Link>
