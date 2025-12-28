@@ -39,9 +39,15 @@ export default function OrderPage() {
       const { data: tableData } = await supabase.from('event_tables').select('*').eq('id', tableId).single()
       setTable(tableData)
 
-      // Get categories
+      // Get categories - filter duplicates
       const { data: cats } = await getCategories(eventData?.venue_id)
-      if (cats) { setCategories(cats); setSelectedCat(cats[0]?.slug) }
+      if (cats) { 
+        const uniqueCats = cats.filter((cat, index, self) => 
+          index === self.findIndex(c => c.slug === cat.slug)
+        )
+        setCategories(uniqueCats)
+        setSelectedCat(uniqueCats[0]?.slug) 
+      }
 
       // Get menu items
       const { data: items } = await getMenuItems(eventData?.venue_id)
