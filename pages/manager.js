@@ -49,14 +49,12 @@ export default function ManagerDashboard() {
   
   const [showEventModal, setShowEventModal] = useState(false)
   const [showWaiterModal, setShowWaiterModal] = useState(false)
-  const [showTableModal, setShowTableModal] = useState(false)
   const [showReservationModal, setShowReservationModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
-  const [selectedCell, setSelectedCell] = useState(null)
   const [selectedTableForRes, setSelectedTableForRes] = useState(null)
+  const [selectedTableType, setSelectedTableType] = useState('normal') // Pentru adăugare rapidă
   const [eventForm, setEventForm] = useState({ name: '', event_date: '', start_time: '22:00', description: '' })
   const [waiterForm, setWaiterForm] = useState({ name: '', phone: '' })
-  const [tableType, setTableType] = useState('normal')
   const [reservationForm, setReservationForm] = useState({ customer_name: '', customer_phone: '', party_size: 2, reservation_time: '22:00', notes: '', is_vip: false })
   const [productForm, setProductForm] = useState({ name: '', description: '', default_price: '', category_id: '' })
   const [categories, setCategories] = useState([])
@@ -131,28 +129,20 @@ export default function ManagerDashboard() {
     loadData()
   }
 
-  const handleCellClick = (row, col) => {
+  const handleCellClick = async (row, col) => {
     const zoneTables = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
     if (zoneTables.some(t => t.grid_row === row && t.grid_col === col)) return
-    setSelectedCell({ row, col })
-    setTableType('normal')
-    setShowTableModal(true)
-  }
-
-  const handleAddTable = async () => {
-    if (!selectedCell || !selectedEvent) return
-    const zoneTables = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
-    const count = zoneTables.filter(t => t.table_type === tableType).length + 1
-    const prefix = tableType === 'vip' ? 'VIP' : tableType === 'bar' ? 'B' : 'M'
+    
+    // Adaugă direct cu tipul selectat
+    const count = zoneTables.filter(t => t.table_type === selectedTableType).length + 1
+    const prefix = selectedTableType === 'vip' ? 'VIP' : selectedTableType === 'bar' ? 'B' : 'M'
     const suffix = activeZone === 'back' ? '-S' : ''
     await createEventTable({
-      event_id: selectedEvent.id, table_number: `${prefix}${count}${suffix}`, table_type: tableType,
-      capacity: tableType === 'vip' ? 8 : tableType === 'bar' ? 2 : 4,
-      min_spend: tableType === 'vip' ? 1500 : tableType === 'bar' ? 0 : 500,
-      grid_row: selectedCell.row, grid_col: selectedCell.col, zone: activeZone
+      event_id: selectedEvent.id, table_number: `${prefix}${count}${suffix}`, table_type: selectedTableType,
+      capacity: selectedTableType === 'vip' ? 8 : selectedTableType === 'bar' ? 2 : 4,
+      min_spend: selectedTableType === 'vip' ? 1500 : selectedTableType === 'bar' ? 0 : 500,
+      grid_row: row, grid_col: col, zone: activeZone
     })
-    setShowTableModal(false)
-    setSelectedCell(null)
     loadEventData(selectedEvent.id)
   }
 
@@ -320,19 +310,47 @@ export default function ManagerDashboard() {
           <button onClick={() => setActiveZone('front')} style={{...s.zoneTab, backgroundColor: activeZone === 'front' ? colors.champagne : 'transparent', color: activeZone === 'front' ? colors.noir : colors.textMuted}}>🎭 În fața scenei</button>
           <button onClick={() => setActiveZone('back')} style={{...s.zoneTab, backgroundColor: activeZone === 'back' ? colors.champagne : 'transparent', color: activeZone === 'back' ? colors.noir : colors.textMuted}}>🎪 În spatele scenei</button>
         </div>
-        <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>{currentZoneTables.length} mese în {activeZone === 'front' ? 'față' : 'spate'}</div>
+        
+        {/* SELECTOR TIP MASĂ - pentru adăugare rapidă */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, padding: 12, backgroundColor: colors.onyx, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
+          <span style={{ fontSize: 12, color: colors.textMuted, display: 'flex', alignItems: 'center', marginRight: 8 }}>Adaugă:</span>
+          {Object.entries(TABLE_TYPES).map(([type, cfg]) => (
+            <button
+              key={type}
+              onClick={() => setSelectedTableType(type)}
+              style={{
+                padding: '8px 16px',
+                border: `2px solid ${selectedTableType === type ? cfg.color : colors.border}`,
+                backgroundColor: selectedTableType === type ? `${cfg.color}30` : 'transparent',
+                color: cfg.color,
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 11,
+                fontWeight: 600,
+                transition: 'all 0.15s'
+              }}
+            >
+              {cfg.label}
+            </button>
+          ))}
+        </div>
+        
+        <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>{currentZoneTables.length} mese în {activeZone === 'front' ? 'față' : 'spate'} • Click pe + pentru a adăuga {TABLE_TYPES[selectedTableType].label}</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${currentCols}, ${cellSize}px)`, gap, padding: 10, backgroundColor: colors.noir, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
             {Array.from({ length: currentRows }).map((_, row) => (
               Array.from({ length: currentCols }).map((_, col) => {
                 const table = currentZoneTables.find(t => t.grid_row === row && t.grid_col === col)
-                const cfg = table ? TABLE_TYPES[table.table_type] : null
+                const cfg = table ? TABLE_TYPES[table.table_type] : TABLE_TYPES[selectedTableType]
                 const hasRes = table && getTableReservation(table.id)
                 return (
                   <div key={`${row}-${col}`} onClick={() => table ? handleTableClick({ stopPropagation: () => {} }, table) : handleCellClick(row, col)}
-                    style={{ width: cellSize, height: cellSize, border: table ? `2px solid ${hasRes ? colors.warning : cfg.color}` : `1px dashed rgba(255,255,255,0.15)`,
-                      borderRadius: table?.table_type === 'bar' ? '50%' : 6, backgroundColor: table ? (hasRes ? `${colors.warning}30` : `${cfg.color}20`) : 'transparent',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: isDesktop ? 10 : 8, fontWeight: 600, color: table ? (hasRes ? colors.warning : cfg.color) : 'rgba(255,255,255,0.2)' }}>
+                    style={{ width: cellSize, height: cellSize, border: table ? `2px solid ${hasRes ? colors.warning : cfg.color}` : `2px dashed ${cfg.color}40`,
+                      borderRadius: table?.table_type === 'bar' ? '50%' : selectedTableType === 'bar' && !table ? '50%' : 6, 
+                      backgroundColor: table ? (hasRes ? `${colors.warning}30` : `${cfg.color}20`) : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: isDesktop ? 10 : 8, fontWeight: 600, 
+                      color: table ? (hasRes ? colors.warning : cfg.color) : `${cfg.color}60`,
+                      transition: 'all 0.15s' }}>
                     {table ? table.table_number : '+'}
                   </div>
                 )
@@ -494,8 +512,6 @@ export default function ManagerDashboard() {
       {showEventModal && (<div style={s.modal} onClick={() => setShowEventModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Eveniment nou</span><button onClick={() => setShowEventModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Nume</label><input type="text" value={eventForm.name} onChange={e => setEventForm({...eventForm, name: e.target.value})} placeholder="Revelion 2025" style={s.input} /><label style={s.label}>Data</label><input type="date" value={eventForm.event_date} onChange={e => setEventForm({...eventForm, event_date: e.target.value})} style={s.input} /><label style={s.label}>Ora</label><input type="time" value={eventForm.start_time} onChange={e => setEventForm({...eventForm, start_time: e.target.value})} style={s.input} /></div><div style={s.modalFoot}><button onClick={() => setShowEventModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateEvent} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Creează</button></div></div></div>)}
 
       {showWaiterModal && (<div style={s.modal} onClick={() => setShowWaiterModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Ospătar nou</span><button onClick={() => setShowWaiterModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Nume</label><input type="text" value={waiterForm.name} onChange={e => setWaiterForm({...waiterForm, name: e.target.value})} placeholder="Alexandru Pop" style={s.input} /><label style={s.label}>Telefon</label><input type="tel" value={waiterForm.phone} onChange={e => setWaiterForm({...waiterForm, phone: e.target.value})} placeholder="0722 111 111" style={s.input} /></div><div style={s.modalFoot}><button onClick={() => setShowWaiterModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateWaiter} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Adaugă</button></div></div></div>)}
-
-      {showTableModal && selectedCell && (<div style={s.modal} onClick={() => { setShowTableModal(false); setSelectedCell(null) }}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Masă nouă ({activeZone === 'front' ? 'față' : 'spate'})</span><button onClick={() => { setShowTableModal(false); setSelectedCell(null) }} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Tip masă</label><div style={{ display: 'flex', gap: 10 }}>{Object.entries(TABLE_TYPES).map(([type, cfg]) => (<button key={type} onClick={() => setTableType(type)} style={{ flex: 1, padding: 16, border: `2px solid ${tableType === type ? cfg.color : colors.border}`, backgroundColor: tableType === type ? `${cfg.color}20` : 'transparent', color: cfg.color, borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>{cfg.label}</button>))}</div></div><div style={s.modalFoot}><button onClick={() => { setShowTableModal(false); setSelectedCell(null) }} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleAddTable} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Adaugă</button></div></div></div>)}
 
       {showReservationModal && selectedTableForRes && (<div style={s.modal} onClick={() => { setShowReservationModal(false); setSelectedTableForRes(null) }}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Rezervare - {selectedTableForRes.table_number}</span><button onClick={() => { setShowReservationModal(false); setSelectedTableForRes(null) }} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}>
         <div style={{ padding: 16, backgroundColor: `${colors.champagne}15`, border: `1px solid ${colors.champagne}`, borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>
