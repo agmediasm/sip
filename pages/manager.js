@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
-import { supabase, getEvents, createEvent, deleteEvent, getEventTables, createEventTable, deleteEventTable, getMenuItems, getEventMenu, setEventMenuPrice, getWaiters, createWaiter, deleteWaiter, getEventWaiters, addWaiterToEvent, removeWaiterFromEvent, getTableAssignments, assignTableToWaiter, getCustomers, getAnalytics, getEventAnalytics, getWaiterLeaderboard, getEventReservations, createReservation, deleteReservation } from '../lib/supabase'
+import { supabase, getEvents, createEvent, updateEvent, deleteEvent, getEventTables, createEventTable, deleteEventTable, getMenuItems, getEventMenu, setEventMenuPrice, getWaiters, createWaiter, deleteWaiter, restoreWaiter, getWaiterStats, getEventWaiters, addWaiterToEvent, removeWaiterFromEvent, getTableAssignments, assignTableToWaiter, getCustomers, getCustomersFiltered, getAnalytics, getWaiterLeaderboard, getEventReservations, createReservation, deleteReservation, getLayoutTemplates, createLayoutTemplate, deleteLayoutTemplate, applyLayoutTemplate } from '../lib/supabase'
 
 const VENUE_ID = '11111111-1111-1111-1111-111111111111'
 const APP_URL = typeof window !== 'undefined' ? window.location.origin : ''
@@ -19,8 +19,7 @@ const TABLE_TYPES = {
   bar: { label: 'Bar', color: colors.bar }
 }
 
-const DEFAULT_COLS = 8
-const DEFAULT_ROWS = 6
+const DEFAULT_COLS = 8, DEFAULT_ROWS = 6
 
 export default function ManagerDashboard() {
   const [isDesktop, setIsDesktop] = useState(false)
@@ -29,6 +28,7 @@ export default function ManagerDashboard() {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [eventTables, setEventTables] = useState([])
   const [reservations, setReservations] = useState([])
+  const [layoutTemplates, setLayoutTemplates] = useState([])
   
   const [activeZone, setActiveZone] = useState('front')
   const [frontGridRows, setFrontGridRows] = useState(DEFAULT_ROWS)
@@ -39,9 +39,13 @@ export default function ManagerDashboard() {
   const [menuItems, setMenuItems] = useState([])
   const [eventMenu, setEventMenu] = useState([])
   const [waiters, setWaiters] = useState([])
+  const [waiterFilter, setWaiterFilter] = useState('active')
+  const [selectedWaiter, setSelectedWaiter] = useState(null)
+  const [waiterStats, setWaiterStats] = useState({})
   const [eventWaiters, setEventWaiters] = useState([])
   const [tableAssignments, setTableAssignments] = useState([])
   const [customers, setCustomers] = useState([])
+  const [customerFilter, setCustomerFilter] = useState({ period: 'all', eventId: null })
   const [analytics, setAnalytics] = useState({})
   const [leaderboard, setLeaderboard] = useState([])
   const [loading, setLoading] = useState(true)
@@ -51,38 +55,57 @@ export default function ManagerDashboard() {
   const [showWaiterModal, setShowWaiterModal] = useState(false)
   const [showReservationModal, setShowReservationModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
+  const [showLayoutModal, setShowLayoutModal] = useState(false)
+  const [showWaiterStatsModal, setShowWaiterStatsModal] = useState(false)
+  const [editingEvent, setEditingEvent] = useState(null)
   const [selectedTableForRes, setSelectedTableForRes] = useState(null)
-  const [selectedTableType, setSelectedTableType] = useState('normal') // Pentru adăugare rapidă
+  const [selectedTableType, setSelectedTableType] = useState('normal')
+  
   const [eventForm, setEventForm] = useState({ name: '', event_date: '', start_time: '22:00', description: '' })
   const [waiterForm, setWaiterForm] = useState({ name: '', phone: '' })
   const [reservationForm, setReservationForm] = useState({ customer_name: '', customer_phone: '', party_size: 2, reservation_time: '22:00', notes: '', is_vip: false })
   const [productForm, setProductForm] = useState({ name: '', description: '', default_price: '', category_id: '' })
+  const [layoutName, setLayoutName] = useState('')
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [categories, setCategories] = useState([])
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 900)
-    check()
-    window.addEventListener('resize', check)
+    check(); window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { if (selectedEvent) loadEventData(selectedEvent.id) }, [selectedEvent])
   useEffect(() => { loadAnalytics() }, [analyticsPeriod])
+  useEffect(() => { loadWaiters() }, [waiterFilter])
+  useEffect(() => { loadCustomers() }, [customerFilter])
 
   const loadData = async () => {
     setLoading(true)
-    const [eventsRes, waitersRes, customersRes, menuRes, catsRes] = await Promise.all([
-      getEvents(VENUE_ID), getWaiters(VENUE_ID), getCustomers(20), getMenuItems(VENUE_ID),
-      supabase.from('categories').select('*').eq('venue_id', VENUE_ID).order('sort_order')
+    const [eventsRes, customersRes, menuRes, catsRes, templatesRes] = await Promise.all([
+      getEvents(VENUE_ID), getCustomers(50), getMenuItems(VENUE_ID),
+      supabase.from('categories').select('*').eq('venue_id', VENUE_ID).order('sort_order'),
+      getLayoutTemplates(VENUE_ID)
     ])
     if (eventsRes.data?.length) { setEvents(eventsRes.data); setSelectedEvent(eventsRes.data[0]) }
-    if (waitersRes.data) setWaiters(waitersRes.data)
     if (customersRes.data) setCustomers(customersRes.data)
     if (menuRes.data) setMenuItems(menuRes.data)
     if (catsRes.data) setCategories(catsRes.data)
+    if (templatesRes.data) setLayoutTemplates(templatesRes.data)
+    await loadWaiters()
     await loadAnalytics()
     setLoading(false)
+  }
+
+  const loadWaiters = async () => {
+    const { data } = await getWaiters(VENUE_ID, waiterFilter)
+    if (data) setWaiters(data)
+  }
+
+  const loadCustomers = async () => {
+    const { data } = await getCustomersFiltered({ ...customerFilter, limit: 50 })
+    if (data) setCustomers(data)
   }
 
   const loadEventData = async (eventId) => {
@@ -112,13 +135,43 @@ export default function ManagerDashboard() {
 
   const loadAnalytics = async () => { setAnalytics(await getAnalytics(VENUE_ID, analyticsPeriod)) }
 
+  const loadWaiterStats = async (waiter) => {
+    setSelectedWaiter(waiter)
+    const globalStats = await getWaiterStats(waiter.id)
+    const eventStats = selectedEvent ? await getWaiterStats(waiter.id, selectedEvent.id) : { totalSales: 0, totalOrders: 0 }
+    setWaiterStats({ global: globalStats, event: eventStats })
+    setShowWaiterStatsModal(true)
+  }
+
+  // Event handlers
   const handleCreateEvent = async () => {
     if (!eventForm.name || !eventForm.event_date) return
     const { data } = await createEvent({ ...eventForm, venue_id: VENUE_ID })
-    if (data) setSelectedEvent(data)
+    if (data) {
+      if (selectedTemplate) {
+        await applyLayoutTemplate(selectedTemplate, data.id)
+      }
+      setSelectedEvent(data)
+    }
+    setShowEventModal(false)
+    setEventForm({ name: '', event_date: '', start_time: '22:00', description: '' })
+    setSelectedTemplate(null)
+    loadData()
+  }
+
+  const handleUpdateEvent = async () => {
+    if (!editingEvent || !eventForm.name) return
+    await updateEvent(editingEvent.id, eventForm)
+    setEditingEvent(null)
     setShowEventModal(false)
     setEventForm({ name: '', event_date: '', start_time: '22:00', description: '' })
     loadData()
+  }
+
+  const openEditEvent = (ev) => {
+    setEditingEvent(ev)
+    setEventForm({ name: ev.name, event_date: ev.event_date, start_time: ev.start_time, description: ev.description || '' })
+    setShowEventModal(true)
   }
 
   const handleDeleteEvent = async (e, eventId) => {
@@ -129,11 +182,27 @@ export default function ManagerDashboard() {
     loadData()
   }
 
+  // Layout handlers
+  const handleSaveLayout = async () => {
+    if (!layoutName || eventTables.length === 0) return
+    await createLayoutTemplate(VENUE_ID, layoutName, eventTables)
+    setLayoutName('')
+    setShowLayoutModal(false)
+    const { data } = await getLayoutTemplates(VENUE_ID)
+    if (data) setLayoutTemplates(data)
+  }
+
+  const handleDeleteTemplate = async (templateId) => {
+    if (!confirm('Ștergi acest layout?')) return
+    await deleteLayoutTemplate(templateId)
+    const { data } = await getLayoutTemplates(VENUE_ID)
+    if (data) setLayoutTemplates(data)
+  }
+
+  // Grid handlers
   const handleCellClick = async (row, col) => {
     const zoneTables = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
     if (zoneTables.some(t => t.grid_row === row && t.grid_col === col)) return
-    
-    // Adaugă direct cu tipul selectat
     const count = zoneTables.filter(t => t.table_type === selectedTableType).length + 1
     const prefix = selectedTableType === 'vip' ? 'VIP' : selectedTableType === 'bar' ? 'B' : 'M'
     const suffix = activeZone === 'back' ? '-S' : ''
@@ -157,19 +226,25 @@ export default function ManagerDashboard() {
   const addRow = () => activeZone === 'front' ? setFrontGridRows(p => p + 1) : setBackGridRows(p => p + 1)
   const addCol = () => activeZone === 'front' ? setFrontGridCols(p => p + 1) : setBackGridCols(p => p + 1)
 
+  // Waiter handlers
   const handleCreateWaiter = async () => {
     if (!waiterForm.name || !waiterForm.phone) return
     await createWaiter({ ...waiterForm, venue_id: VENUE_ID })
     setShowWaiterModal(false)
     setWaiterForm({ name: '', phone: '' })
-    loadData()
+    loadWaiters()
   }
 
   const handleDeleteWaiter = async (e, waiterId) => {
     e.stopPropagation()
-    if (!confirm('Ștergi?')) return
+    if (!confirm('Ștergi acest ospătar?')) return
     await deleteWaiter(waiterId)
-    loadData()
+    loadWaiters()
+  }
+
+  const handleRestoreWaiter = async (waiterId) => {
+    await restoreWaiter(waiterId)
+    loadWaiters()
   }
 
   const handleToggleWaiterEvent = async (waiterId) => {
@@ -181,21 +256,16 @@ export default function ManagerDashboard() {
   }
 
   const handleAssignTable = async (tableId, waiterId) => {
-    if (!selectedEvent) return
     await assignTableToWaiter(tableId, waiterId, selectedEvent.id)
     loadEventData(selectedEvent.id)
   }
 
-  // Click pe masă în rezervări
+  // Reservation handlers
   const handleTableClickForReservation = (table) => {
     const hasRes = getTableReservation(table.id)
     if (hasRes) {
-      // Dacă are rezervare, întreabă dacă vrea să șteargă
-      if (confirm(`Ștergi rezervarea pentru ${table.table_number}?\n${hasRes.customer_name} - ${hasRes.reservation_time}`)) {
-        handleDeleteReservation(hasRes.id)
-      }
+      if (confirm(`Ștergi rezervarea pentru ${table.table_number}?\n${hasRes.customer_name}`)) handleDeleteReservation(hasRes.id)
     } else {
-      // Dacă nu are rezervare, deschide modal
       setSelectedTableForRes(table)
       setReservationForm({ customer_name: '', customer_phone: '', party_size: 2, reservation_time: '22:00', notes: '', is_vip: false })
       setShowReservationModal(true)
@@ -206,13 +276,10 @@ export default function ManagerDashboard() {
     if (!reservationForm.customer_name || !selectedTableForRes) return
     await createReservation({
       venue_id: VENUE_ID, event_id: selectedEvent.id, event_table_id: selectedTableForRes.id,
-      customer_name: reservationForm.customer_name, customer_phone: reservationForm.customer_phone,
-      party_size: reservationForm.party_size, reservation_time: reservationForm.reservation_time,
-      notes: reservationForm.notes, is_vip: reservationForm.is_vip
+      ...reservationForm
     })
     setShowReservationModal(false)
     setSelectedTableForRes(null)
-    setReservationForm({ customer_name: '', customer_phone: '', party_size: 2, reservation_time: '22:00', notes: '', is_vip: false })
     loadEventData(selectedEvent.id)
   }
 
@@ -221,6 +288,7 @@ export default function ManagerDashboard() {
     loadEventData(selectedEvent.id)
   }
 
+  // Product handlers
   const handleCreateProduct = async () => {
     if (!productForm.name || !productForm.default_price || !productForm.category_id) return
     await supabase.from('menu_items').insert({
@@ -233,7 +301,7 @@ export default function ManagerDashboard() {
   }
 
   const handleDeleteProduct = async (productId) => {
-    if (!confirm('Ștergi produsul?')) return
+    if (!confirm('Ștergi?')) return
     await supabase.from('menu_items').delete().eq('id', productId)
     loadData()
   }
@@ -247,7 +315,7 @@ export default function ManagerDashboard() {
 
   const handleDeleteCategory = async (catId) => {
     if (menuItems.filter(m => m.category_id === catId).length > 0) { alert('Categorie cu produse!'); return }
-    if (!confirm('Ștergi categoria?')) return
+    if (!confirm('Ștergi?')) return
     await supabase.from('categories').delete().eq('id', catId)
     loadData()
   }
@@ -267,8 +335,8 @@ export default function ManagerDashboard() {
     btn: { padding: '10px 18px', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderRadius: 6 },
     btnSm: { padding: '8px 14px', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 4 },
     card: { backgroundColor: colors.onyx, border: `1px solid ${colors.border}`, padding: 16, marginBottom: 12, borderRadius: 8 },
-    input: { width: '100%', padding: 14, border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: colors.ivory, fontSize: 15, marginBottom: 14, borderRadius: 6, outline: 'none' },
-    select: { width: '100%', padding: 14, border: `1px solid ${colors.border}`, backgroundColor: colors.onyx, color: colors.ivory, fontSize: 15, marginBottom: 14, borderRadius: 6 },
+    input: { width: '100%', padding: 14, border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: colors.ivory, fontSize: 15, marginBottom: 14, borderRadius: 6, outline: 'none', boxSizing: 'border-box' },
+    select: { width: '100%', padding: 14, border: `1px solid ${colors.border}`, backgroundColor: colors.onyx, color: colors.ivory, fontSize: 15, marginBottom: 14, borderRadius: 6, boxSizing: 'border-box' },
     label: { display: 'block', fontSize: 11, color: colors.textMuted, letterSpacing: 2, marginBottom: 6, fontWeight: 600 },
     modal: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
     modalBox: { backgroundColor: colors.onyx, width: '100%', maxWidth: 420, borderRadius: 12, border: `1px solid ${colors.border}`, maxHeight: '90vh', overflowY: 'auto' },
@@ -280,7 +348,9 @@ export default function ManagerDashboard() {
     statVal: { fontSize: isDesktop ? 28 : 22, fontWeight: 300, color: colors.champagne },
     statLbl: { fontSize: 10, letterSpacing: 2, color: colors.textMuted, marginTop: 6, fontWeight: 600 },
     zoneTabs: { display: 'flex', marginBottom: 12, border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' },
-    zoneTab: { flex: 1, padding: '10px 16px', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer' }
+    zoneTab: { flex: 1, padding: '10px 16px', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer' },
+    filterRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+    filterBtn: { padding: '8px 14px', border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: colors.textMuted, fontSize: 11, cursor: 'pointer', borderRadius: 4 }
   }
 
   const TABS = [
@@ -300,42 +370,23 @@ export default function ManagerDashboard() {
   const currentRows = activeZone === 'front' ? frontGridRows : backGridRows
   const currentCols = activeZone === 'front' ? frontGridCols : backGridCols
 
-  // GRID pentru LAYOUT (adăugare mese)
   const renderLayoutGrid = () => {
-    const cellSize = isDesktop ? 48 : 36
-    const gap = 4
+    const cellSize = isDesktop ? 48 : 36, gap = 4
     return (
       <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
         <div style={s.zoneTabs}>
-          <button onClick={() => setActiveZone('front')} style={{...s.zoneTab, backgroundColor: activeZone === 'front' ? colors.champagne : 'transparent', color: activeZone === 'front' ? colors.noir : colors.textMuted}}>🎭 În fața scenei</button>
-          <button onClick={() => setActiveZone('back')} style={{...s.zoneTab, backgroundColor: activeZone === 'back' ? colors.champagne : 'transparent', color: activeZone === 'back' ? colors.noir : colors.textMuted}}>🎪 În spatele scenei</button>
+          <button onClick={() => setActiveZone('front')} style={{...s.zoneTab, backgroundColor: activeZone === 'front' ? colors.champagne : 'transparent', color: activeZone === 'front' ? colors.noir : colors.textMuted}}>🎭 Față</button>
+          <button onClick={() => setActiveZone('back')} style={{...s.zoneTab, backgroundColor: activeZone === 'back' ? colors.champagne : 'transparent', color: activeZone === 'back' ? colors.noir : colors.textMuted}}>🎪 Spate</button>
         </div>
-        
-        {/* SELECTOR TIP MASĂ - pentru adăugare rapidă */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, padding: 12, backgroundColor: colors.onyx, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
-          <span style={{ fontSize: 12, color: colors.textMuted, display: 'flex', alignItems: 'center', marginRight: 8 }}>Adaugă:</span>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, padding: 12, backgroundColor: colors.onyx, border: `1px solid ${colors.border}`, borderRadius: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: colors.textMuted, marginRight: 8 }}>Adaugă:</span>
           {Object.entries(TABLE_TYPES).map(([type, cfg]) => (
-            <button
-              key={type}
-              onClick={() => setSelectedTableType(type)}
-              style={{
-                padding: '8px 16px',
-                border: `2px solid ${selectedTableType === type ? cfg.color : colors.border}`,
-                backgroundColor: selectedTableType === type ? `${cfg.color}30` : 'transparent',
-                color: cfg.color,
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontSize: 11,
-                fontWeight: 600,
-                transition: 'all 0.15s'
-              }}
-            >
-              {cfg.label}
-            </button>
+            <button key={type} onClick={() => setSelectedTableType(type)} style={{ padding: '8px 16px', border: `2px solid ${selectedTableType === type ? cfg.color : colors.border}`, backgroundColor: selectedTableType === type ? `${cfg.color}30` : 'transparent', color: cfg.color, borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{cfg.label}</button>
           ))}
+          <div style={{ flex: 1 }} />
+          <button onClick={() => setShowLayoutModal(true)} style={{...s.btnSm, backgroundColor: colors.champagne, color: colors.noir}}>💾 Salvează Layout</button>
         </div>
-        
-        <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>{currentZoneTables.length} mese în {activeZone === 'front' ? 'față' : 'spate'} • Click pe + pentru a adăuga {TABLE_TYPES[selectedTableType].label}</div>
+        <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>{currentZoneTables.length} mese • Click + adaugă {TABLE_TYPES[selectedTableType].label}</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${currentCols}, ${cellSize}px)`, gap, padding: 10, backgroundColor: colors.noir, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
             {Array.from({ length: currentRows }).map((_, row) => (
@@ -346,11 +397,10 @@ export default function ManagerDashboard() {
                 return (
                   <div key={`${row}-${col}`} onClick={() => table ? handleTableClick({ stopPropagation: () => {} }, table) : handleCellClick(row, col)}
                     style={{ width: cellSize, height: cellSize, border: table ? `2px solid ${hasRes ? colors.warning : cfg.color}` : `2px dashed ${cfg.color}40`,
-                      borderRadius: table?.table_type === 'bar' ? '50%' : selectedTableType === 'bar' && !table ? '50%' : 6, 
+                      borderRadius: table?.table_type === 'bar' || (!table && selectedTableType === 'bar') ? '50%' : 6, 
                       backgroundColor: table ? (hasRes ? `${colors.warning}30` : `${cfg.color}20`) : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: isDesktop ? 10 : 8, fontWeight: 600, 
-                      color: table ? (hasRes ? colors.warning : cfg.color) : `${cfg.color}60`,
-                      transition: 'all 0.15s' }}>
+                      color: table ? (hasRes ? colors.warning : cfg.color) : `${cfg.color}60` }}>
                     {table ? table.table_number : '+'}
                   </div>
                 )
@@ -360,66 +410,48 @@ export default function ManagerDashboard() {
           <button onClick={addCol} style={{...s.btnSm, backgroundColor: 'transparent', border: `1px dashed ${colors.border}`, color: colors.textMuted, padding: '20px 8px', writingMode: 'vertical-lr'}}>+ Col</button>
         </div>
         <button onClick={addRow} style={{...s.btn, marginTop: 8, backgroundColor: 'transparent', border: `1px dashed ${colors.border}`, color: colors.textMuted, width: currentCols * (cellSize + gap) + 20}}>+ Rând</button>
-        <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 11, color: colors.textMuted, flexWrap: 'wrap' }}>
-          {Object.entries(TABLE_TYPES).map(([type, cfg]) => (<div key={type} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 10, height: 10, backgroundColor: cfg.color, borderRadius: type === 'bar' ? '50%' : 2 }} />{cfg.label}</div>))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><div style={{ width: 10, height: 10, backgroundColor: colors.warning, borderRadius: 2 }} />Rezervat</div>
-        </div>
+        {layoutTemplates.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <div style={s.title}>Layout-uri Salvate</div>
+            {layoutTemplates.map(t => (
+              <div key={t.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <div><div style={{ fontWeight: 500 }}>{t.name}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{t.tables_config?.length || 0} mese</div></div>
+                <button onClick={() => handleDeleteTemplate(t.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
 
-  // GRID pentru REZERVĂRI (click pe masă = rezervă/șterge)
   const renderReservationGrid = () => {
-    const cellSize = isDesktop ? 52 : 44
-    const gap = 5
+    const cellSize = isDesktop ? 52 : 44, gap = 5
     return (
       <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
         <div style={s.zoneTabs}>
           <button onClick={() => setActiveZone('front')} style={{...s.zoneTab, backgroundColor: activeZone === 'front' ? colors.champagne : 'transparent', color: activeZone === 'front' ? colors.noir : colors.textMuted}}>🎭 Față</button>
           <button onClick={() => setActiveZone('back')} style={{...s.zoneTab, backgroundColor: activeZone === 'back' ? colors.champagne : 'transparent', color: activeZone === 'back' ? colors.noir : colors.textMuted}}>🎪 Spate</button>
         </div>
-        
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${currentCols}, ${cellSize}px)`, gap, padding: 12, backgroundColor: colors.noir, border: `1px solid ${colors.border}`, borderRadius: 8, width: 'fit-content' }}>
           {Array.from({ length: currentRows }).map((_, row) => (
             Array.from({ length: currentCols }).map((_, col) => {
               const table = currentZoneTables.find(t => t.grid_row === row && t.grid_col === col)
               if (!table) return <div key={`${row}-${col}`} style={{ width: cellSize, height: cellSize }} />
-              
-              const cfg = TABLE_TYPES[table.table_type]
               const hasRes = getTableReservation(table.id)
-              
               return (
-                <div
-                  key={`${row}-${col}`}
-                  onClick={() => handleTableClickForReservation(table)}
-                  style={{
-                    width: cellSize,
-                    height: cellSize,
-                    border: `2px solid ${hasRes ? colors.warning : colors.success}`,
-                    borderRadius: table.table_type === 'bar' ? '50%' : 8,
-                    backgroundColor: hasRes ? `${colors.warning}30` : `${colors.success}20`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: hasRes ? colors.warning : colors.success,
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  <span>{table.table_number}</span>
-                  <span style={{ fontSize: 8, marginTop: 2 }}>{hasRes ? '🔒' : '✓'}</span>
+                <div key={`${row}-${col}`} onClick={() => handleTableClickForReservation(table)}
+                  style={{ width: cellSize, height: cellSize, border: `2px solid ${hasRes ? colors.warning : colors.success}`, borderRadius: table.table_type === 'bar' ? '50%' : 8,
+                    backgroundColor: hasRes ? `${colors.warning}30` : `${colors.success}20`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', fontSize: 10, fontWeight: 700, color: hasRes ? colors.warning : colors.success }}>
+                  <span>{table.table_number}</span><span style={{ fontSize: 8 }}>{hasRes ? '🔒' : '✓'}</span>
                 </div>
               )
             })
           ))}
         </div>
-        
         <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 11, color: colors.textMuted }}>
-          <span>🟢 Liberă (click = rezervă)</span>
-          <span>🟠 Rezervată (click = șterge)</span>
+          <span>🟢 Liberă (click = rezervă)</span><span>🟠 Rezervată (click = șterge)</span>
         </div>
       </div>
     )
@@ -439,49 +471,29 @@ export default function ManagerDashboard() {
 
       <div style={s.content}>
         {activeTab === 'overview' && (<>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-            {['today', 'week', 'month', 'year'].map(p => (<button key={p} onClick={() => setAnalyticsPeriod(p)} style={{...s.btn, backgroundColor: analyticsPeriod === p ? colors.champagne : 'transparent', color: analyticsPeriod === p ? colors.noir : colors.textMuted, border: `1px solid ${analyticsPeriod === p ? colors.champagne : colors.border}`}}>{p === 'today' ? 'Azi' : p === 'week' ? '7 zile' : p === 'month' ? '30 zile' : 'An'}</button>))}
+          <div style={s.filterRow}>
+            {['today', 'week', 'month', 'year'].map(p => (<button key={p} onClick={() => setAnalyticsPeriod(p)} style={{...s.filterBtn, backgroundColor: analyticsPeriod === p ? colors.champagne : 'transparent', color: analyticsPeriod === p ? colors.noir : colors.textMuted, borderColor: analyticsPeriod === p ? colors.champagne : colors.border}}>{p === 'today' ? 'Azi' : p === 'week' ? '7 zile' : p === 'month' ? '30 zile' : 'An'}</button>))}
           </div>
           <div style={s.statsGrid}>
-            <div style={s.stat}><div style={s.statVal}>{analytics.totalRevenue?.toLocaleString() || 0}</div><div style={s.statLbl}>VENITURI</div></div>
+            <div style={s.stat}><div style={s.statVal}>{analytics.totalRevenue?.toLocaleString() || 0}</div><div style={s.statLbl}>VENITURI LEI</div></div>
             <div style={s.stat}><div style={s.statVal}>{analytics.totalOrders || 0}</div><div style={s.statLbl}>COMENZI</div></div>
             <div style={s.stat}><div style={s.statVal}>{analytics.avgOrder || 0}</div><div style={s.statLbl}>MEDIE</div></div>
             <div style={s.stat}><div style={s.statVal}>{customers.length}</div><div style={s.statLbl}>CLIENȚI</div></div>
           </div>
-          {leaderboard.length > 0 && (<><div style={s.title}>🏅 Staff Leaderboard</div>{leaderboard.slice(0, 5).map((w, i) => (<div key={w.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 18 }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}</span><span>{w.name}</span></div><div style={{ textAlign: 'right' }}><div style={{ color: colors.champagne, fontWeight: 600 }}>{(w.event_sales || w.total_sales || 0).toLocaleString()} LEI</div><div style={{ fontSize: 11, color: colors.textMuted }}>{w.event_orders || w.total_orders || 0} comenzi</div></div></div>))}</>)}
+          {leaderboard.length > 0 && (<><div style={s.title}>🏅 Staff Leaderboard {selectedEvent && `- ${selectedEvent.name}`}</div>{leaderboard.slice(0, 5).map((w, i) => (<div key={w.id} onClick={() => loadWaiterStats(w)} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer'}}><div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 18 }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}</span><span>{w.name}</span></div><div style={{ textAlign: 'right' }}><div style={{ color: colors.champagne, fontWeight: 600 }}>{(w.event_sales || w.total_sales || 0).toLocaleString()} LEI</div><div style={{ fontSize: 11, color: colors.textMuted }}>{w.event_orders || w.total_orders || 0} comenzi</div></div></div>))}</>)}
         </>)}
 
         {activeTab === 'events' && (<>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}><div style={s.title}>Evenimente</div><button onClick={() => setShowEventModal(true)} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>+ Nou</button></div>
-          {events.map(ev => (<div key={ev.id} onClick={() => setSelectedEvent(ev)} style={{...s.card, cursor: 'pointer', borderColor: selectedEvent?.id === ev.id ? colors.champagne : colors.border}}><div style={{ display: 'flex', justifyContent: 'space-between' }}><div><div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>{ev.name}</div><div style={{ fontSize: 13, color: colors.textMuted }}>📅 {new Date(ev.event_date).toLocaleDateString('ro-RO', { weekday: 'short', day: 'numeric', month: 'short' })} • 🕐 {ev.start_time}</div></div><button onClick={(e) => handleDeleteEvent(e, ev.id)} style={{ background: 'none', border: 'none', color: colors.error, fontSize: 18, cursor: 'pointer' }}>✕</button></div></div>))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}><div style={s.title}>Evenimente</div><button onClick={() => { setEditingEvent(null); setEventForm({ name: '', event_date: '', start_time: '22:00', description: '' }); setShowEventModal(true) }} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>+ Nou</button></div>
+          {events.map(ev => (<div key={ev.id} onClick={() => setSelectedEvent(ev)} style={{...s.card, cursor: 'pointer', borderColor: selectedEvent?.id === ev.id ? colors.champagne : colors.border}}><div style={{ display: 'flex', justifyContent: 'space-between' }}><div><div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>{ev.name}</div><div style={{ fontSize: 13, color: colors.textMuted }}>📅 {new Date(ev.event_date).toLocaleDateString('ro-RO', { weekday: 'short', day: 'numeric', month: 'short' })} • 🕐 {ev.start_time}</div></div><div style={{ display: 'flex', gap: 8 }}><button onClick={(e) => { e.stopPropagation(); openEditEvent(ev) }} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.champagne, border: `1px solid ${colors.champagne}`}}>✏️</button><button onClick={(e) => handleDeleteEvent(e, ev.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button></div></div></div>))}
         </>)}
 
-        {activeTab === 'layout' && (<>{!selectedEvent ? <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Selectează un eveniment</div> : <><div style={s.title}>{selectedEvent.name} - Layout</div>{renderLayoutGrid()}<div style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 12 }}>Click + adaugă • Click masă șterge</div></>}</>)}
+        {activeTab === 'layout' && (<>{!selectedEvent ? <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Selectează un eveniment</div> : <><div style={s.title}>{selectedEvent.name} - Layout</div>{renderLayoutGrid()}</>}</>)}
 
         {activeTab === 'reservations' && (<>{!selectedEvent ? <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Selectează un eveniment</div> : <>
           <div style={s.title}>Rezervări - {selectedEvent.name} ({reservations.length})</div>
           {renderReservationGrid()}
-          
-          {reservations.length > 0 && (
-            <div style={{ marginTop: 24 }}>
-              <div style={s.title}>Lista rezervări</div>
-              {reservations.map(res => (
-                <div key={res.id} style={s.card}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <div style={{ width: 44, height: 44, backgroundColor: `${colors.warning}25`, border: `2px solid ${colors.warning}`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: colors.warning }}>{res.event_tables?.table_number || '?'}</div>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 500 }}>{res.customer_name} {res.is_vip && <span style={{ color: colors.champagne }}>⭐</span>}</div>
-                        <div style={{ fontSize: 11, color: colors.textMuted }}>🕐 {res.reservation_time} • 👥 {res.party_size}p {res.customer_phone && `• 📱 ${res.customer_phone}`}</div>
-                        {res.notes && <div style={{ fontSize: 11, color: colors.warning }}>📝 {res.notes}</div>}
-                      </div>
-                    </div>
-                    <button onClick={() => handleDeleteReservation(res.id)} style={{ background: 'none', border: 'none', color: colors.error, fontSize: 16, cursor: 'pointer' }}>✕</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {reservations.length > 0 && (<div style={{ marginTop: 24 }}><div style={s.title}>Lista rezervări</div>{reservations.map(res => (<div key={res.id} style={s.card}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><div style={{ width: 44, height: 44, backgroundColor: `${colors.warning}25`, border: `2px solid ${colors.warning}`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: colors.warning }}>{res.event_tables?.table_number || '?'}</div><div><div style={{ fontSize: 14, fontWeight: 500 }}>{res.customer_name} {res.is_vip && <span style={{ color: colors.champagne }}>⭐</span>}</div><div style={{ fontSize: 11, color: colors.textMuted }}>🕐 {res.reservation_time} • 👥 {res.party_size}p {res.customer_phone && `• 📱 ${res.customer_phone}`}</div>{res.notes && <div style={{ fontSize: 11, color: colors.warning }}>📝 {res.notes}</div>}</div></div><button onClick={() => handleDeleteReservation(res.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: 'none', fontSize: 16}}>✕</button></div></div>))}</div>)}
         </>}</>)}
 
         {activeTab === 'menu' && (<>
@@ -500,24 +512,68 @@ export default function ManagerDashboard() {
         {activeTab === 'qr' && (<>{!selectedEvent ? <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Selectează un eveniment</div> : <><div style={s.title}>QR Links - {selectedEvent.name}</div>{eventTables.map(table => { const waiter = getAssignedWaiter(table.id); const link = `${APP_URL}/order/${selectedEvent.id}/${table.id}`; return (<div key={table.id} style={s.card}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ fontWeight: 600, color: TABLE_TYPES[table.table_type]?.color }}>{table.table_number}</span><span style={{ fontSize: 10, color: colors.textMuted }}>({table.zone === 'back' ? 'spate' : 'față'})</span>{waiter && <span style={{ fontSize: 11, color: colors.textMuted }}>👤 {waiter.name}</span>}</div></div><div style={{ backgroundColor: colors.noir, padding: 10, fontSize: 10, color: colors.platinum, wordBreak: 'break-all', fontFamily: 'monospace', borderRadius: 4 }}>{link}</div></div>) })}</>}</>)}
 
         {activeTab === 'waiters' && (<>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}><div style={s.title}>Ospătari</div><button onClick={() => setShowWaiterModal(true)} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>+ Nou</button></div>
-          {waiters.map(w => { const isAssigned = eventWaiters.some(ew => ew.waiter_id === w.id); return (<div key={w.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><div><div style={{ fontWeight: 500 }}>{w.name}</div><div style={{ fontSize: 12, color: colors.textMuted }}>{w.phone}</div></div><div style={{ display: 'flex', gap: 8 }}>{selectedEvent && <button onClick={() => handleToggleWaiterEvent(w.id)} style={{...s.btnSm, backgroundColor: isAssigned ? colors.success : 'transparent', color: isAssigned ? '#fff' : colors.textMuted, border: `1px solid ${isAssigned ? colors.success : colors.border}`}}>{isAssigned ? '✓' : '+'}</button>}<button onClick={(e) => handleDeleteWaiter(e, w.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button></div></div>) })}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}><div style={s.title}>Ospătari</div><button onClick={() => setShowWaiterModal(true)} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>+ Nou</button></div>
+          <div style={s.filterRow}>
+            {[{v: 'active', l: 'Activi'}, {v: 'all', l: 'Toți'}, {v: 'deleted', l: 'Șterși'}].map(f => (
+              <button key={f.v} onClick={() => setWaiterFilter(f.v)} style={{...s.filterBtn, backgroundColor: waiterFilter === f.v ? colors.champagne : 'transparent', color: waiterFilter === f.v ? colors.noir : colors.textMuted, borderColor: waiterFilter === f.v ? colors.champagne : colors.border}}>{f.l}</button>
+            ))}
+          </div>
+          {waiters.map(w => { 
+            const isAssigned = eventWaiters.some(ew => ew.waiter_id === w.id)
+            const isDeleted = w.is_deleted
+            return (
+              <div key={w.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: isDeleted ? 0.6 : 1}}>
+                <div onClick={() => loadWaiterStats(w)} style={{ cursor: 'pointer' }}>
+                  <div style={{ fontWeight: 500 }}>{w.name} {isDeleted && <span style={{ fontSize: 10, color: colors.error }}>(șters)</span>}</div>
+                  <div style={{ fontSize: 12, color: colors.textMuted }}>{w.phone}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {isDeleted ? (
+                    <button onClick={() => handleRestoreWaiter(w.id)} style={{...s.btnSm, backgroundColor: colors.success, color: '#fff'}}>↩️ Restaurează</button>
+                  ) : (
+                    <>
+                      {selectedEvent && <button onClick={() => handleToggleWaiterEvent(w.id)} style={{...s.btnSm, backgroundColor: isAssigned ? colors.success : 'transparent', color: isAssigned ? '#fff' : colors.textMuted, border: `1px solid ${isAssigned ? colors.success : colors.border}`}}>{isAssigned ? '✓' : '+'}</button>}
+                      <button onClick={(e) => handleDeleteWaiter(e, w.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )
+          })}
           {selectedEvent && eventWaiters.length > 0 && eventTables.length > 0 && (<><div style={{...s.title, marginTop: 30}}>Atribuire Mese</div>{eventTables.map(t => { const aw = getAssignedWaiter(t.id); return (<div key={t.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><span style={{ fontWeight: 500, color: TABLE_TYPES[t.table_type]?.color }}>{t.table_number}</span><select value={aw?.id || ''} onChange={(e) => handleAssignTable(t.id, e.target.value)} style={{...s.select, width: 'auto', marginBottom: 0, padding: '8px 14px'}}><option value="">-</option>{eventWaiters.map(ew => <option key={ew.waiter_id} value={ew.waiter_id}>{ew.waiters?.name}</option>)}</select></div>) })}</>)}
         </>)}
 
-        {activeTab === 'customers' && (<><div style={s.title}>👑 Top Clienți</div>{customers.map((c, i) => (<div key={c.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 16, color: i < 3 ? colors.champagne : colors.textMuted }}>{i < 3 ? '👑' : `#${i + 1}`}</span><div><div style={{ fontWeight: 500 }}>{c.name}</div><div style={{ fontSize: 12, color: colors.textMuted }}>{c.phone} • {c.visit_count} vizite</div></div></div><div style={{ color: colors.champagne, fontWeight: 600 }}>{c.total_spent?.toLocaleString()} LEI</div></div>))}</>)}
+        {activeTab === 'customers' && (<>
+          <div style={s.title}>👑 Clienți</div>
+          <div style={s.filterRow}>
+            <span style={{ fontSize: 11, color: colors.textMuted, marginRight: 8 }}>Perioadă:</span>
+            {[{v: 'all', l: 'Tot'}, {v: 'today', l: 'Azi'}, {v: 'week', l: '7 zile'}, {v: 'month', l: '30 zile'}].map(f => (
+              <button key={f.v} onClick={() => setCustomerFilter({...customerFilter, period: f.v})} style={{...s.filterBtn, backgroundColor: customerFilter.period === f.v ? colors.champagne : 'transparent', color: customerFilter.period === f.v ? colors.noir : colors.textMuted, borderColor: customerFilter.period === f.v ? colors.champagne : colors.border}}>{f.l}</button>
+            ))}
+          </div>
+          <div style={s.filterRow}>
+            <span style={{ fontSize: 11, color: colors.textMuted, marginRight: 8 }}>Eveniment:</span>
+            <select value={customerFilter.eventId || ''} onChange={e => setCustomerFilter({...customerFilter, eventId: e.target.value || null})} style={{...s.select, width: 'auto', marginBottom: 0, padding: '8px 14px'}}>
+              <option value="">Toate</option>
+              {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+            </select>
+          </div>
+          {customers.map((c, i) => (<div key={c.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 16, color: i < 3 ? colors.champagne : colors.textMuted }}>{i < 3 ? '👑' : `#${i + 1}`}</span><div><div style={{ fontWeight: 500 }}>{c.name || 'Anonim'}</div><div style={{ fontSize: 12, color: colors.textMuted }}>{c.phone} • {c.visit_count || 0} vizite</div></div></div><div style={{ color: colors.champagne, fontWeight: 600 }}>{(c.total_spent || 0).toLocaleString()} LEI</div></div>))}
+        </>)}
       </div>
 
       {/* MODALS */}
-      {showEventModal && (<div style={s.modal} onClick={() => setShowEventModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Eveniment nou</span><button onClick={() => setShowEventModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Nume</label><input type="text" value={eventForm.name} onChange={e => setEventForm({...eventForm, name: e.target.value})} placeholder="Revelion 2025" style={s.input} /><label style={s.label}>Data</label><input type="date" value={eventForm.event_date} onChange={e => setEventForm({...eventForm, event_date: e.target.value})} style={s.input} /><label style={s.label}>Ora</label><input type="time" value={eventForm.start_time} onChange={e => setEventForm({...eventForm, start_time: e.target.value})} style={s.input} /></div><div style={s.modalFoot}><button onClick={() => setShowEventModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateEvent} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Creează</button></div></div></div>)}
+      {showEventModal && (<div style={s.modal} onClick={() => setShowEventModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>{editingEvent ? 'Editare eveniment' : 'Eveniment nou'}</span><button onClick={() => setShowEventModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}>
+        <label style={s.label}>Nume</label><input type="text" value={eventForm.name} onChange={e => setEventForm({...eventForm, name: e.target.value})} placeholder="Revelion 2025" style={s.input} />
+        <label style={s.label}>Data</label><input type="date" value={eventForm.event_date} onChange={e => setEventForm({...eventForm, event_date: e.target.value})} style={s.input} />
+        <label style={s.label}>Ora</label><input type="time" value={eventForm.start_time} onChange={e => setEventForm({...eventForm, start_time: e.target.value})} style={s.input} />
+        {!editingEvent && layoutTemplates.length > 0 && (<><label style={s.label}>Layout mese (opțional)</label><select value={selectedTemplate || ''} onChange={e => setSelectedTemplate(e.target.value || null)} style={s.select}><option value="">Fără layout</option>{layoutTemplates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.tables_config?.length} mese)</option>)}</select></>)}
+      </div><div style={s.modalFoot}><button onClick={() => setShowEventModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={editingEvent ? handleUpdateEvent : handleCreateEvent} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>{editingEvent ? 'Salvează' : 'Creează'}</button></div></div></div>)}
 
       {showWaiterModal && (<div style={s.modal} onClick={() => setShowWaiterModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Ospătar nou</span><button onClick={() => setShowWaiterModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Nume</label><input type="text" value={waiterForm.name} onChange={e => setWaiterForm({...waiterForm, name: e.target.value})} placeholder="Alexandru Pop" style={s.input} /><label style={s.label}>Telefon</label><input type="tel" value={waiterForm.phone} onChange={e => setWaiterForm({...waiterForm, phone: e.target.value})} placeholder="0722 111 111" style={s.input} /></div><div style={s.modalFoot}><button onClick={() => setShowWaiterModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateWaiter} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Adaugă</button></div></div></div>)}
 
       {showReservationModal && selectedTableForRes && (<div style={s.modal} onClick={() => { setShowReservationModal(false); setSelectedTableForRes(null) }}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Rezervare - {selectedTableForRes.table_number}</span><button onClick={() => { setShowReservationModal(false); setSelectedTableForRes(null) }} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}>
-        <div style={{ padding: 16, backgroundColor: `${colors.champagne}15`, border: `1px solid ${colors.champagne}`, borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color: colors.champagne }}>{selectedTableForRes.table_number}</div>
-          <div style={{ fontSize: 12, color: colors.textMuted }}>{selectedTableForRes.capacity} persoane • {TABLE_TYPES[selectedTableForRes.table_type]?.label}</div>
-        </div>
+        <div style={{ padding: 16, backgroundColor: `${colors.champagne}15`, border: `1px solid ${colors.champagne}`, borderRadius: 8, marginBottom: 16, textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 700, color: colors.champagne }}>{selectedTableForRes.table_number}</div><div style={{ fontSize: 12, color: colors.textMuted }}>{selectedTableForRes.capacity} pers • {TABLE_TYPES[selectedTableForRes.table_type]?.label}</div></div>
         <label style={s.label}>Nume client</label><input type="text" value={reservationForm.customer_name} onChange={e => setReservationForm({...reservationForm, customer_name: e.target.value})} placeholder="Ion Popescu" style={s.input} />
         <label style={s.label}>Telefon</label><input type="tel" value={reservationForm.customer_phone} onChange={e => setReservationForm({...reservationForm, customer_phone: e.target.value})} placeholder="0722 123 456" style={s.input} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}><div><label style={s.label}>Ora</label><select value={reservationForm.reservation_time} onChange={e => setReservationForm({...reservationForm, reservation_time: e.target.value})} style={s.select}>{['20:00','21:00','22:00','23:00','00:00','01:00'].map(t => <option key={t} value={t}>{t}</option>)}</select></div><div><label style={s.label}>Persoane</label><select value={reservationForm.party_size} onChange={e => setReservationForm({...reservationForm, party_size: parseInt(e.target.value)})} style={s.select}>{[1,2,3,4,5,6,8,10,12].map(n => <option key={n} value={n}>{n}</option>)}</select></div></div>
@@ -526,6 +582,13 @@ export default function ManagerDashboard() {
       </div><div style={s.modalFoot}><button onClick={() => { setShowReservationModal(false); setSelectedTableForRes(null) }} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateReservation} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Rezervă</button></div></div></div>)}
 
       {showProductModal && (<div style={s.modal} onClick={() => setShowProductModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Produs nou</span><button onClick={() => setShowProductModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><label style={s.label}>Categorie</label><select value={productForm.category_id} onChange={e => setProductForm({...productForm, category_id: e.target.value})} style={s.select}><option value="">Selectează...</option>{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select><label style={s.label}>Nume</label><input type="text" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} placeholder="Mojito" style={s.input} /><label style={s.label}>Descriere</label><input type="text" value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} placeholder="Rum, mentă, lime" style={s.input} /><label style={s.label}>Preț (LEI)</label><input type="number" value={productForm.default_price} onChange={e => setProductForm({...productForm, default_price: e.target.value})} placeholder="45" style={s.input} /></div><div style={s.modalFoot}><button onClick={() => setShowProductModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleCreateProduct} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Adaugă</button></div></div></div>)}
+
+      {showLayoutModal && (<div style={s.modal} onClick={() => setShowLayoutModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>Salvează Layout</span><button onClick={() => setShowLayoutModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}><div style={{ textAlign: 'center', padding: 16, marginBottom: 16, backgroundColor: `${colors.champagne}15`, borderRadius: 8 }}><div style={{ fontSize: 32, fontWeight: 700, color: colors.champagne }}>{eventTables.length}</div><div style={{ fontSize: 12, color: colors.textMuted }}>mese în acest layout</div></div><label style={s.label}>Nume layout</label><input type="text" value={layoutName} onChange={e => setLayoutName(e.target.value)} placeholder="Ex: Layout Revelion" style={s.input} /></div><div style={s.modalFoot}><button onClick={() => setShowLayoutModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button><button onClick={handleSaveLayout} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Salvează</button></div></div></div>)}
+
+      {showWaiterStatsModal && selectedWaiter && (<div style={s.modal} onClick={() => setShowWaiterStatsModal(false)}><div style={s.modalBox} onClick={e => e.stopPropagation()}><div style={s.modalHead}><span style={{ fontSize: 16, fontWeight: 600 }}>📊 {selectedWaiter.name}</span><button onClick={() => setShowWaiterStatsModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button></div><div style={s.modalBody}>
+        <div style={{ marginBottom: 24 }}><div style={{ fontSize: 11, color: colors.textMuted, letterSpacing: 2, marginBottom: 12 }}>TOTAL (toate evenimentele)</div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}><div style={s.stat}><div style={s.statVal}>{waiterStats.global?.totalSales?.toLocaleString() || 0}</div><div style={s.statLbl}>LEI</div></div><div style={s.stat}><div style={s.statVal}>{waiterStats.global?.totalOrders || 0}</div><div style={s.statLbl}>COMENZI</div></div></div></div>
+        {selectedEvent && (<div><div style={{ fontSize: 11, color: colors.textMuted, letterSpacing: 2, marginBottom: 12 }}>{selectedEvent.name}</div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}><div style={s.stat}><div style={s.statVal}>{waiterStats.event?.totalSales?.toLocaleString() || 0}</div><div style={s.statLbl}>LEI</div></div><div style={s.stat}><div style={s.statVal}>{waiterStats.event?.totalOrders || 0}</div><div style={s.statLbl}>COMENZI</div></div></div></div>)}
+      </div></div></div>)}
     </div>
   )
 }
