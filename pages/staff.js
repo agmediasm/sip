@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
-import { supabase, getEvents, getEventTables, getEventReservations, loginWaiter, getTableOrders, getTableHistory, updateOrderStatus, markOrderPaid, getTableAssignments } from '../lib/supabase'
+import { supabase, getEvents, getEventTables, getEventReservations, loginWaiter, getTableOrders, updateOrderStatus, markOrderPaid, getTableAssignments } from '../lib/supabase'
 
 const VENUE_ID = '11111111-1111-1111-1111-111111111111'
 
@@ -12,11 +12,7 @@ const colors = {
   vip: '#d4af37', normal: '#3b82f6', bar: '#8b5cf6'
 }
 
-const TABLE_TYPES = {
-  vip: { color: colors.vip },
-  normal: { color: colors.normal },
-  bar: { color: colors.bar }
-}
+const TABLE_TYPES = { vip: { color: colors.vip }, normal: { color: colors.normal }, bar: { color: colors.bar } }
 
 export default function StaffDashboard() {
   const [waiter, setWaiter] = useState(null)
@@ -33,8 +29,8 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true)
   
   const [selectedTable, setSelectedTable] = useState(null)
-  const [tableHistory, setTableHistory] = useState([])
   const [tableOrders, setTableOrders] = useState([])
+  const [activeZone, setActiveZone] = useState('front')
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('sip_waiter') : null
@@ -79,23 +75,25 @@ export default function StaffDashboard() {
 
   const openTableHistory = async (table) => {
     setSelectedTable(table)
-    const [historyRes, ordersRes] = await Promise.all([getTableHistory(table.id), getTableOrders(table.id)])
-    setTableHistory(historyRes.data || [])
+    const ordersRes = await getTableOrders(table.id)
     setTableOrders(ordersRes.data || [])
   }
 
-  const handleOrderStatus = async (orderId, status) => {
-    await updateOrderStatus(orderId, status)
-    loadEventData()
-  }
-
-  const handleMarkPaid = async (orderId, paymentType) => {
-    await markOrderPaid(orderId, paymentType)
-    loadEventData()
-  }
+  const handleOrderStatus = async (orderId, status) => { await updateOrderStatus(orderId, status); loadEventData() }
+  const handleMarkPaid = async (orderId, paymentType) => { await markOrderPaid(orderId, paymentType); loadEventData() }
 
   const getTableRes = (tableId) => reservations.find(r => r.event_table_id === tableId)
   const getAssignedWaiter = (tableId) => tableAssignments.find(a => a.event_table_id === tableId)?.waiters
+  const isMyTable = (tableId) => getAssignedWaiter(tableId)?.id === waiter?.id
+
+  // Calculez dimensiunile grid-ului
+  const getGridDimensions = (zone) => {
+    const zoneTables = eventTables.filter(t => zone === 'front' ? t.zone !== 'back' : t.zone === 'back')
+    if (zoneTables.length === 0) return { rows: 6, cols: 8 }
+    const maxRow = Math.max(...zoneTables.map(t => t.grid_row))
+    const maxCol = Math.max(...zoneTables.map(t => t.grid_col))
+    return { rows: Math.max(6, maxRow + 1), cols: Math.max(8, maxCol + 1) }
+  }
 
   const s = {
     container: { minHeight: '100vh', backgroundColor: colors.noir, color: colors.ivory, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
@@ -113,8 +111,70 @@ export default function StaffDashboard() {
     modalBox: { backgroundColor: colors.onyx, width: '100%', maxWidth: 420, borderRadius: 12, border: `1px solid ${colors.border}`, maxHeight: '90vh', overflowY: 'auto' },
     modalHead: { padding: 18, borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
     modalBody: { padding: 18 },
-    grid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 },
+    zoneTabs: { display: 'flex', marginBottom: 12, border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' },
+    zoneTab: { flex: 1, padding: '10px 12px', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer' },
     loginContainer: { minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32 }
+  }
+
+  // RENDER GRID pentru layout sau rezervări
+  const renderLayoutGrid = (showOnlyMyTables = false, clickable = true) => {
+    const { rows, cols } = getGridDimensions(activeZone)
+    const zoneTables = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
+    const cellSize = 42
+    const gap = 4
+
+    return (
+      <div style={{ overflowX: 'auto' }}>
+        <div style={s.zoneTabs}>
+          <button onClick={() => setActiveZone('front')} style={{...s.zoneTab, backgroundColor: activeZone === 'front' ? colors.champagne : 'transparent', color: activeZone === 'front' ? colors.noir : colors.textMuted}}>🎭 Față</button>
+          <button onClick={() => setActiveZone('back')} style={{...s.zoneTab, backgroundColor: activeZone === 'back' ? colors.champagne : 'transparent', color: activeZone === 'back' ? colors.noir : colors.textMuted}}>🎪 Spate</button>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`, gap, padding: 10, backgroundColor: colors.noir, border: `1px solid ${colors.border}`, borderRadius: 8, width: 'fit-content' }}>
+          {Array.from({ length: rows }).map((_, row) => (
+            Array.from({ length: cols }).map((_, col) => {
+              const table = zoneTables.find(t => t.grid_row === row && t.grid_col === col)
+              if (!table) return <div key={`${row}-${col}`} style={{ width: cellSize, height: cellSize }} />
+              
+              const cfg = TABLE_TYPES[table.table_type]
+              const hasRes = getTableRes(table.id)
+              const myTable = isMyTable(table.id)
+              const showText = showOnlyMyTables ? myTable : true
+              
+              return (
+                <div
+                  key={`${row}-${col}`}
+                  onClick={() => clickable && openTableHistory(table)}
+                  style={{
+                    width: cellSize,
+                    height: cellSize,
+                    border: `2px solid ${hasRes ? colors.warning : myTable ? colors.champagne : cfg.color}`,
+                    borderRadius: table.table_type === 'bar' ? '50%' : 6,
+                    backgroundColor: hasRes ? `${colors.warning}25` : myTable ? `${colors.champagne}25` : `${cfg.color}15`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: clickable ? 'pointer' : 'default',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: hasRes ? colors.warning : myTable ? colors.champagne : cfg.color,
+                    opacity: showOnlyMyTables && !myTable ? 0.4 : 1
+                  }}
+                >
+                  {showText ? table.table_number : ''}
+                </div>
+              )
+            })
+          ))}
+        </div>
+        
+        <div style={{ display: 'flex', gap: 12, marginTop: 12, fontSize: 10, color: colors.textMuted, flexWrap: 'wrap' }}>
+          <span>🟡 Masa ta</span>
+          <span>🟠 Rezervată</span>
+          <span>🔵 Alte mese</span>
+        </div>
+      </div>
+    )
   }
 
   // LOGIN SCREEN
@@ -147,9 +207,7 @@ export default function StaffDashboard() {
       <Head><title>S I P - Staff</title></Head>
 
       <header style={s.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ textDecoration: 'none' }}><span style={s.logo}>S I P</span></Link>
-        </div>
+        <Link href="/" style={{ textDecoration: 'none' }}><span style={s.logo}>S I P</span></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, color: colors.platinum }}>👤 {waiter.name}</span>
           <button onClick={handleLogout} style={{ ...s.btn, backgroundColor: 'transparent', color: colors.textMuted, padding: 8 }}>Ieși</button>
@@ -165,7 +223,7 @@ export default function StaffDashboard() {
       <div style={s.tabs}>
         {[
           { id: 'orders', label: `🔔 Comenzi ${newOrders.length > 0 ? `(${newOrders.length})` : ''}` },
-          { id: 'tables', label: '🗺️ Mese' },
+          { id: 'tables', label: '🗺️ Mesele mele' },
           { id: 'reservations', label: '📋 Rezervări' }
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{...s.tab, color: activeTab === tab.id ? colors.champagne : colors.textMuted, borderBottomColor: activeTab === tab.id ? colors.champagne : 'transparent'}}>{tab.label}</button>
@@ -250,83 +308,55 @@ export default function StaffDashboard() {
           </>
         )}
 
-        {/* TABLES */}
+        {/* TABLES - Arată toate mesele dar text doar pe ale mele */}
         {activeTab === 'tables' && (
           <>
-            <div style={s.title}>Click pe masă pentru istoric</div>
-            <div style={s.grid}>
-              {eventTables.map(table => {
-                const res = getTableRes(table.id)
-                const cfg = TABLE_TYPES[table.table_type]
-                const waiterAssigned = getAssignedWaiter(table.id)
-                const isMyTable = waiterAssigned?.id === waiter.id
-                return (
-                  <div
-                    key={table.id}
-                    onClick={() => openTableHistory(table)}
-                    style={{
-                      aspectRatio: '1',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: res ? 'rgba(239,68,68,0.2)' : isMyTable ? 'rgba(212,175,55,0.2)' : colors.onyx,
-                      border: `2px solid ${res ? colors.error : isMyTable ? colors.champagne : cfg.color}`,
-                      borderRadius: table.table_type === 'bar' ? '50%' : 6,
-                      cursor: 'pointer',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: res ? colors.error : isMyTable ? colors.champagne : cfg.color
-                    }}
-                  >
-                    <span>{table.table_number}</span>
-                    {res && <span style={{ fontSize: 8 }}>Rezervat</span>}
-                    {isMyTable && !res && <span style={{ fontSize: 8 }}>Tu</span>}
-                  </div>
-                )
-              })}
-            </div>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 10, color: colors.textMuted }}>
-              <span>🟡 Masa ta</span>
-              <span>🔴 Rezervată</span>
+            <div style={s.title}>Mesele tale sunt marcate cu 🟡</div>
+            {renderLayoutGrid(true, true)}
+            <div style={{ marginTop: 16, fontSize: 11, color: colors.textMuted, textAlign: 'center' }}>
+              Click pe orice masă pentru istoric comenzi
             </div>
           </>
         )}
 
-        {/* RESERVATIONS - READ ONLY */}
+        {/* RESERVATIONS - Read only, vezi toate mesele */}
         {activeTab === 'reservations' && (
           <>
-            <div style={s.title}>Rezervări ({reservations.length})</div>
-            {reservations.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Nicio rezervare</div>
-            ) : (
-              reservations.map(res => (
-                <div key={res.id} style={s.card}>
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                    <div style={{ 
-                      width: 50, height: 50, 
-                      backgroundColor: `${colors.champagne}20`, 
-                      border: `2px solid ${colors.champagne}`,
-                      borderRadius: 8,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 700, color: colors.champagne
-                    }}>
-                      {res.event_tables?.table_number || '?'}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>
-                        {res.customer_name} {res.is_vip && <span style={{ color: colors.champagne }}>⭐</span>}
+            <div style={s.title}>Rezervări - vizualizare</div>
+            {renderLayoutGrid(false, false)}
+            
+            <div style={{ marginTop: 24 }}>
+              <div style={s.title}>Lista rezervări ({reservations.length})</div>
+              {reservations.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 24, color: colors.textMuted }}>Nicio rezervare</div>
+              ) : (
+                reservations.map(res => (
+                  <div key={res.id} style={s.card}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <div style={{ 
+                        width: 44, height: 44, 
+                        backgroundColor: `${colors.warning}25`, 
+                        border: `2px solid ${colors.warning}`,
+                        borderRadius: 6,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10, fontWeight: 700, color: colors.warning
+                      }}>
+                        {res.event_tables?.table_number || '?'}
                       </div>
-                      <div style={{ fontSize: 12, color: colors.textMuted }}>
-                        🕐 {res.reservation_time} • 👥 {res.party_size} persoane
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 500 }}>
+                          {res.customer_name} {res.is_vip && <span style={{ color: colors.champagne }}>⭐</span>}
+                        </div>
+                        <div style={{ fontSize: 11, color: colors.textMuted }}>
+                          🕐 {res.reservation_time} • 👥 {res.party_size}p
+                        </div>
+                        {res.notes && <div style={{ fontSize: 11, color: colors.warning }}>📝 {res.notes}</div>}
                       </div>
-                      {res.customer_phone && <div style={{ fontSize: 12, color: colors.textMuted }}>📱 {res.customer_phone}</div>}
-                      {res.notes && <div style={{ fontSize: 12, color: colors.warning, marginTop: 4 }}>📝 {res.notes}</div>}
                     </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </>
         )}
       </div>
@@ -341,31 +371,28 @@ export default function StaffDashboard() {
             </div>
             <div style={s.modalBody}>
               {tableOrders.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 32, color: colors.textMuted }}>Niciun istoric</div>
+                <div style={{ textAlign: 'center', padding: 32, color: colors.textMuted }}>Nicio comandă</div>
               ) : (
-                <>
-                  <div style={s.title}>Comenzi</div>
-                  {tableOrders.map(order => (
-                    <div key={order.id} style={{ ...s.card, padding: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 11, color: colors.textMuted }}>{new Date(order.created_at).toLocaleString('ro-RO')}</span>
-                        <span style={{ fontSize: 10, padding: '2px 8px', backgroundColor: order.payment_status === 'paid' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)', color: order.payment_status === 'paid' ? colors.success : colors.error, borderRadius: 4 }}>
-                          {order.payment_status === 'paid' ? '✓ Plătit' : 'Neplătit'}
-                        </span>
-                      </div>
-                      {order.order_items?.map((item, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0' }}>
-                          <span>{item.quantity}× {item.name}</span>
-                          <span>{item.subtotal} LEI</span>
-                        </div>
-                      ))}
-                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: colors.textMuted, fontSize: 11 }}>{order.payment_type === 'cash' ? '💵' : '💳'}</span>
-                        <span style={{ fontWeight: 500, color: colors.champagne }}>{order.total} LEI</span>
-                      </div>
+                tableOrders.map(order => (
+                  <div key={order.id} style={{ ...s.card, padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, color: colors.textMuted }}>{new Date(order.created_at).toLocaleString('ro-RO')}</span>
+                      <span style={{ fontSize: 10, padding: '2px 8px', backgroundColor: order.payment_status === 'paid' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)', color: order.payment_status === 'paid' ? colors.success : colors.error, borderRadius: 4 }}>
+                        {order.payment_status === 'paid' ? '✓ Plătit' : 'Neplătit'}
+                      </span>
                     </div>
-                  ))}
-                </>
+                    {order.order_items?.map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0' }}>
+                        <span>{item.quantity}× {item.name}</span>
+                        <span>{item.subtotal} LEI</span>
+                      </div>
+                    ))}
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: colors.textMuted, fontSize: 11 }}>{order.payment_type === 'cash' ? '💵' : '💳'}</span>
+                      <span style={{ fontWeight: 500, color: colors.champagne }}>{order.total} LEI</span>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
