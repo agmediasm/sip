@@ -29,6 +29,8 @@ export default function StaffDashboard() {
   const [showTableModal, setShowTableModal] = useState(false)
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [showReservationModal, setShowReservationModal] = useState(false)
+  const [selectedReservation, setSelectedReservation] = useState(null)
   const [orderError, setOrderError] = useState('')
   const myTableIdsRef = useRef([])
   const audioRef = useRef(null)
@@ -215,8 +217,16 @@ export default function StaffDashboard() {
     addBtn: { width: 32, height: 32, borderRadius: '50%', border: 'none', backgroundColor: colors.champagne, color: colors.noir, fontSize: 18, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }
   }
 
-  const renderGrid = (forMyTables) => {
-    const cellSize = forMyTables ? 48 : 40, gap = 4
+  const openReservationDetails = (table) => {
+    const res = reservations.find(r => r.event_table_id === table.id)
+    if (res) {
+      setSelectedReservation({ ...res, table })
+      setShowReservationModal(true)
+    }
+  }
+
+  const renderGrid = (forMyTables, forReservations = false) => {
+    const cellSize = forMyTables ? 48 : 44, gap = 4
     const zoneTables = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
     const maxRow = zoneTables.length ? Math.max(...zoneTables.map(t => t.grid_row)) + 1 : 6
     const maxCol = zoneTables.length ? Math.max(...zoneTables.map(t => t.grid_col)) + 1 : 8
@@ -233,9 +243,11 @@ export default function StaffDashboard() {
             const t = zoneTables.find(t => t.grid_row === row && t.grid_col === col)
             if (!t) return <div key={`${row}-${col}`} style={{ width: cellSize, height: cellSize }} />
             const mine = myTableIdsRef.current.includes(t.id)
-            const hRes = reservations.some(r => r.event_table_id === t.id)
+            const tableReservation = reservations.find(r => r.event_table_id === t.id)
+            const hasRes = !!tableReservation
             const cfg = { vip: colors.vip, normal: colors.normal, bar: colors.bar }[t.table_type] || colors.normal
             
+            // For "Mesele mele" tab
             if (forMyTables) {
               return (
                 <div key={`${row}-${col}`} onClick={() => mine && openTableOptions(t)} style={{ 
@@ -258,19 +270,46 @@ export default function StaffDashboard() {
               )
             }
             
+            // For "Rezervări" tab - show reserved tables in red with lock
+            if (forReservations) {
+              return (
+                <div key={`${row}-${col}`} onClick={() => hasRes && openReservationDetails(t)} style={{ 
+                  width: cellSize, 
+                  height: cellSize, 
+                  borderRadius: 6, 
+                  border: `2px solid ${hasRes ? colors.error : cfg}`, 
+                  backgroundColor: hasRes ? `${colors.error}30` : `${cfg}15`, 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: hasRes ? 'pointer' : 'default',
+                  fontSize: 9, 
+                  fontWeight: 700, 
+                  color: hasRes ? colors.error : cfg,
+                  gap: 1
+                }}>
+                  {hasRes && <span style={{ fontSize: 10 }}>🔒</span>}
+                  <span>{t.table_number}</span>
+                </div>
+              )
+            }
+            
+            // Default grid (not used currently)
             return (
-              <div key={`${row}-${col}`} style={{ width: cellSize, height: cellSize, borderRadius: 6, border: `2px solid ${hRes ? colors.warning : mine ? colors.champagne : cfg}`, backgroundColor: hRes ? `${colors.warning}25` : mine ? `${colors.champagne}25` : `${cfg}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: hRes ? colors.warning : mine ? colors.champagne : cfg }}>
+              <div key={`${row}-${col}`} style={{ width: cellSize, height: cellSize, borderRadius: 6, border: `2px solid ${hasRes ? colors.warning : mine ? colors.champagne : cfg}`, backgroundColor: hasRes ? `${colors.warning}25` : mine ? `${colors.champagne}25` : `${cfg}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: hasRes ? colors.warning : mine ? colors.champagne : cfg }}>
                 {t.table_number}
               </div>
             )
           }))}
         </div>
         {activeZone === 'back' && <div style={{...s.stage, marginTop: 8, marginBottom: 0}}>🎪 SCENĂ</div>}
-        {forMyTables ? (
+        {forMyTables && (
           <div style={{ marginTop: 16, fontSize: 11, color: colors.textMuted, textAlign: 'center' }}>💡 Click pe o masă pentru a adăuga un produs</div>
-        ) : (
+        )}
+        {forReservations && (
           <div style={{ display: 'flex', gap: 12, marginTop: 12, fontSize: 10, color: colors.textMuted, flexWrap: 'wrap' }}>
-            <span>🟡 Masa ta</span><span>🟠 Rezervată</span><span>🔵 Alte mese</span>
+            <span>🔴 Rezervată (click pentru detalii)</span><span>🔵 Disponibilă</span>
           </div>
         )}
       </div>
@@ -402,17 +441,7 @@ export default function StaffDashboard() {
         
         {activeTab === 'reservations' && <>
           <div style={s.title}>Rezervări</div>
-          {renderGrid(false)}
-          <div style={{ marginTop: 24 }}>
-            {reservations.length === 0 ? <div style={{ textAlign: 'center', padding: 24, color: colors.textMuted }}>Nicio rezervare</div> : reservations.map(r => (
-              <div key={r.id} style={s.card}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ width: 40, height: 40, backgroundColor: `${colors.warning}25`, border: `2px solid ${colors.warning}`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: colors.warning }}>{r.event_tables?.table_number || '?'}</div>
-                  <div><div style={{ fontSize: 14, fontWeight: 500 }}>{r.customer_name} {r.is_vip && '⭐'}</div><div style={{ fontSize: 11, color: colors.textMuted }}>🕐 {r.reservation_time} • 👥 {r.party_size}p</div></div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {renderGrid(false, true)}
         </>}
       </div>
 
@@ -463,6 +492,68 @@ export default function StaffDashboard() {
                   <div style={{ fontWeight: 600, color: colors.champagne }}>{o.total} LEI • {o.payment_type === 'cash' ? '💵' : '💳'} {o.payment_status === 'paid' ? '✓ Plătit' : '○ Neplătit'}</div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reservation Details Modal */}
+      {showReservationModal && selectedReservation && (
+        <div style={s.modal} onClick={() => setShowReservationModal(false)}>
+          <div style={{...s.modalBox, maxWidth: 360}} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHead}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 40, height: 40, backgroundColor: `${colors.error}30`, border: `2px solid ${colors.error}`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: colors.error }}>
+                  🔒
+                </div>
+                <span style={{ fontSize: 18, fontWeight: 600 }}>{selectedReservation.table?.table_number}</span>
+              </div>
+              <button onClick={() => setShowReservationModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ padding: 20 }}>
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <div style={{ fontSize: 11, color: colors.textMuted, letterSpacing: 2, marginBottom: 8 }}>REZERVARE</div>
+                <div style={{ fontSize: 24, fontWeight: 600, color: colors.ivory, marginBottom: 4 }}>
+                  {selectedReservation.customer_name} {selectedReservation.is_vip && '⭐'}
+                </div>
+                {selectedReservation.is_vip && (
+                  <span style={{ fontSize: 10, padding: '4px 12px', backgroundColor: `${colors.vip}30`, color: colors.vip, borderRadius: 20, fontWeight: 600 }}>VIP</span>
+                )}
+              </div>
+              
+              <div style={{ backgroundColor: colors.noir, padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${colors.border}` }}>
+                  <span style={{ color: colors.textMuted, fontSize: 12 }}>🕐 Ora</span>
+                  <span style={{ fontWeight: 500 }}>{selectedReservation.reservation_time}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${colors.border}` }}>
+                  <span style={{ color: colors.textMuted, fontSize: 12 }}>👥 Persoane</span>
+                  <span style={{ fontWeight: 500 }}>{selectedReservation.party_size}</span>
+                </div>
+                {selectedReservation.customer_phone && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${colors.border}` }}>
+                    <span style={{ color: colors.textMuted, fontSize: 12 }}>📱 Telefon</span>
+                    <a href={`tel:${selectedReservation.customer_phone}`} style={{ fontWeight: 500, color: colors.champagne, textDecoration: 'none' }}>{selectedReservation.customer_phone}</a>
+                  </div>
+                )}
+                {selectedReservation.customer_email && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${colors.border}` }}>
+                    <span style={{ color: colors.textMuted, fontSize: 12 }}>✉️ Email</span>
+                    <span style={{ fontWeight: 500, fontSize: 12 }}>{selectedReservation.customer_email}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                  <span style={{ color: colors.textMuted, fontSize: 12 }}>📋 Status</span>
+                  <span style={{ fontWeight: 500, color: selectedReservation.status === 'confirmed' ? colors.success : colors.warning }}>{selectedReservation.status || 'confirmed'}</span>
+                </div>
+              </div>
+              
+              {selectedReservation.notes && (
+                <div style={{ backgroundColor: `${colors.warning}15`, padding: 12, borderRadius: 8, border: `1px solid ${colors.warning}30` }}>
+                  <div style={{ fontSize: 10, color: colors.warning, fontWeight: 600, marginBottom: 4 }}>📝 NOTE</div>
+                  <div style={{ fontSize: 13, color: colors.ivory }}>{selectedReservation.notes}</div>
+                </div>
+              )}
             </div>
           </div>
         </div>
