@@ -15,17 +15,20 @@ export default function StaffDashboard() {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [eventTables, setEventTables] = useState([])
   const [orders, setOrders] = useState([])
+  const [allTableOrders, setAllTableOrders] = useState([])
   const [reservations, setReservations] = useState([])
   const [tableAssignments, setTableAssignments] = useState([])
   const [activeTab, setActiveTab] = useState('orders')
   const [activeZone, setActiveZone] = useState('front')
   const [newOrderAlert, setNewOrderAlert] = useState(false)
-  const [orderTable, setOrderTable] = useState(null)
+  const [selectedTable, setSelectedTable] = useState(null)
   const [menuItems, setMenuItems] = useState([])
   const [categories, setCategories] = useState([])
   const [cart, setCart] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [showTableModal, setShowTableModal] = useState(false)
   const [showOrderModal, setShowOrderModal] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
   const myTableIdsRef = useRef([])
   const audioRef = useRef(null)
 
@@ -62,6 +65,11 @@ export default function StaffDashboard() {
     if (data) setOrders(data)
   }
 
+  const loadTableHistory = async (tableId) => {
+    const { data } = await supabase.from('orders').select('*, event_tables(*)').eq('event_id', selectedEvent.id).eq('event_table_id', tableId).order('created_at', { ascending: false }).limit(20)
+    if (data) setAllTableOrders(data)
+  }
+
   const handleLogin = async () => {
     if (!phoneInput) return
     setLoginError('')
@@ -74,9 +82,7 @@ export default function StaffDashboard() {
   const handleLogout = () => { setWaiter(null); localStorage.removeItem('sip_waiter'); setOrders([]); setSelectedEvent(null) }
 
   const handleOrderStatus = async (orderId, newStatus) => {
-    console.log('Updating order', orderId, 'to', newStatus)
-    const { data, error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId).select()
-    console.log('Update result:', data, error)
+    const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
     if (!error) loadOrders()
   }
 
@@ -85,15 +91,18 @@ export default function StaffDashboard() {
     if (!error) loadOrders()
   }
 
-  const openTableOrder = (table) => { setOrderTable(table); setCart([]); setSearchQuery(''); setShowOrderModal(true) }
+  const openTableOptions = (table) => { setSelectedTable(table); setShowTableModal(true) }
+  const openOrderModal = () => { setShowTableModal(false); setCart([]); setSearchQuery(''); setShowOrderModal(true) }
+  const openHistoryModal = async () => { setShowTableModal(false); await loadTableHistory(selectedTable.id); setShowHistoryModal(true) }
+  
   const addToCart = (item) => { setCart(prev => { const ex = prev.find(c => c.id === item.id); return ex ? prev.map(c => c.id === item.id ? {...c, qty: c.qty + 1} : c) : [...prev, {...item, qty: 1}] }) }
   const removeFromCart = (itemId) => { setCart(prev => { const ex = prev.find(c => c.id === itemId); return ex?.qty > 1 ? prev.map(c => c.id === itemId ? {...c, qty: c.qty - 1} : c) : prev.filter(c => c.id !== itemId) }) }
   const cartTotal = cart.reduce((sum, i) => sum + (i.default_price * i.qty), 0)
 
   const handlePlaceOrder = async (paymentType) => {
-    if (!cart.length || !orderTable) return
-    const { error } = await supabase.from('orders').insert({ venue_id: VENUE_ID, event_id: selectedEvent.id, event_table_id: orderTable.id, waiter_id: waiter.id, order_items: cart.map(i => ({ menu_item_id: i.id, name: i.name, quantity: i.qty, unit_price: i.default_price, subtotal: i.default_price * i.qty })), total: cartTotal, status: 'preparing', payment_type: paymentType, payment_status: 'pending' })
-    if (!error) { setShowOrderModal(false); setCart([]); loadOrders() }
+    if (!cart.length || !selectedTable) return
+    const { error } = await supabase.from('orders').insert({ venue_id: VENUE_ID, event_id: selectedEvent.id, event_table_id: selectedTable.id, waiter_id: waiter.id, order_items: cart.map(i => ({ menu_item_id: i.id, name: i.name, quantity: i.qty, unit_price: i.default_price, subtotal: i.default_price * i.qty })), total: cartTotal, status: 'preparing', payment_type: paymentType, payment_status: 'pending' })
+    if (!error) { setShowOrderModal(false); setCart([]); setSelectedTable(null); loadOrders() }
   }
 
   const filteredMenu = searchQuery ? menuItems.filter(m => m.name?.toLowerCase().includes(searchQuery.toLowerCase())) : menuItems
@@ -120,11 +129,12 @@ export default function StaffDashboard() {
     alertBanner: { position: 'fixed', top: 0, left: 0, right: 0, backgroundColor: colors.error, color: '#fff', padding: 12, textAlign: 'center', fontWeight: 600, zIndex: 50 },
     zoneTabs: { display: 'flex', marginBottom: 12, border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' },
     zoneTab: { flex: 1, padding: '10px 16px', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer' },
-    stage: { backgroundColor: `${colors.champagne}15`, border: `2px solid ${colors.champagne}`, borderRadius: 8, padding: '8px 0', textAlign: 'center', fontSize: 10, fontWeight: 700, color: colors.champagne, letterSpacing: 2, marginBottom: 8 }
+    stage: { backgroundColor: `${colors.champagne}15`, border: `2px solid ${colors.champagne}`, borderRadius: 8, padding: '8px 0', textAlign: 'center', fontSize: 10, fontWeight: 700, color: colors.champagne, letterSpacing: 2, marginBottom: 8 },
+    floatingCart: { position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: colors.onyx, borderTop: `2px solid ${colors.champagne}`, padding: 16, zIndex: 110 }
   }
 
-  const renderGrid = (clickable) => {
-    const cellSize = 40, gap = 4
+  const renderGrid = (forMyTables) => {
+    const cellSize = forMyTables ? 48 : 40, gap = 4
     const zoneTables = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
     const maxRow = zoneTables.length ? Math.max(...zoneTables.map(t => t.grid_row)) + 1 : 6
     const maxCol = zoneTables.length ? Math.max(...zoneTables.map(t => t.grid_col)) + 1 : 8
@@ -143,22 +153,40 @@ export default function StaffDashboard() {
             const mine = myTableIdsRef.current.includes(t.id)
             const hRes = reservations.some(r => r.event_table_id === t.id)
             const cfg = { vip: colors.vip, normal: colors.normal, bar: colors.bar }[t.table_type] || colors.normal
+            
+            if (forMyTables) {
+              return (
+                <div key={`${row}-${col}`} onClick={() => mine && openTableOptions(t)} style={{ width: cellSize, height: cellSize, borderRadius: 8, border: mine ? `3px solid ${colors.champagne}` : `1px solid ${colors.border}`, backgroundColor: mine ? `${colors.champagne}40` : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: mine ? 'pointer' : 'default', fontSize: 10, fontWeight: 700, color: mine ? colors.champagne : 'transparent', opacity: mine ? 1 : 0.2, transition: 'all 0.2s' }}>
+                  {mine ? t.table_number : ''}
+                </div>
+              )
+            }
+            
             return (
-              <div key={`${row}-${col}`} onClick={() => clickable && mine && openTableOrder(t)} style={{ width: cellSize, height: cellSize, borderRadius: 6, border: `2px solid ${hRes ? colors.warning : mine ? colors.champagne : cfg}`, backgroundColor: hRes ? `${colors.warning}25` : mine ? `${colors.champagne}25` : `${cfg}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: clickable && mine ? 'pointer' : 'default', fontSize: 9, fontWeight: 700, color: hRes ? colors.warning : mine ? colors.champagne : cfg }}>
+              <div key={`${row}-${col}`} style={{ width: cellSize, height: cellSize, borderRadius: 6, border: `2px solid ${hRes ? colors.warning : mine ? colors.champagne : cfg}`, backgroundColor: hRes ? `${colors.warning}25` : mine ? `${colors.champagne}25` : `${cfg}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: hRes ? colors.warning : mine ? colors.champagne : cfg }}>
                 {t.table_number}
               </div>
             )
           }))}
         </div>
         {activeZone === 'back' && <div style={{...s.stage, marginTop: 8, marginBottom: 0}}>🎪 SCENĂ</div>}
-        <div style={{ display: 'flex', gap: 12, marginTop: 12, fontSize: 10, color: colors.textMuted, flexWrap: 'wrap' }}>
-          <span>🟡 Masa ta</span>
-          <span>🟠 Rezervată</span>
-          <span>🔵 Alte mese</span>
-        </div>
+        {forMyTables ? (
+          <div style={{ marginTop: 16, fontSize: 11, color: colors.textMuted, textAlign: 'center' }}>💡 Click pe o masă pentru a adăuga un produs</div>
+        ) : (
+          <div style={{ display: 'flex', gap: 12, marginTop: 12, fontSize: 10, color: colors.textMuted, flexWrap: 'wrap' }}>
+            <span>🟡 Masa ta</span><span>🟠 Rezervată</span><span>🔵 Alte mese</span>
+          </div>
+        )}
       </div>
     )
   }
+
+  const renderOrderItems = (items) => items?.map((i, idx) => (
+    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+      <span>{i.quantity}× {i.name}</span>
+      <span style={{ color: colors.textMuted }}>{i.subtotal} LEI</span>
+    </div>
+  ))
 
   if (!waiter) return (
     <div style={s.container}>
@@ -214,14 +242,17 @@ export default function StaffDashboard() {
           {prepO.length > 0 && <>
             <div style={s.title}>⏳ În pregătire ({prepO.length})</div>
             {prepO.map(o => (
-              <div key={o.id} style={{ ...s.card, opacity: 0.9 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${colors.warning}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div>
-                    <span style={{ fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</span>
-                    <span style={{ marginLeft: 12, color: colors.champagne }}>{o.total} LEI</span>
-                    <div style={{ fontSize: 10, color: colors.textMuted }}>{o.order_items?.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
+                    <div style={{ fontSize: 16, fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</div>
+                    <div style={{ fontSize: 10, color: colors.textMuted }}>{new Date(o.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
-                  <button onClick={() => handleOrderStatus(o.id, 'ready')} style={{ ...s.btn, backgroundColor: colors.champagne, color: colors.noir }}>Gata →</button>
+                  <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
+                </div>
+                {renderOrderItems(o.order_items)}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+                  <button onClick={() => handleOrderStatus(o.id, 'ready')} style={{ ...s.btn, width: '100%', backgroundColor: colors.champagne, color: colors.noir }}>✓ Gata de servit</button>
                 </div>
               </div>
             ))}
@@ -230,15 +261,21 @@ export default function StaffDashboard() {
           {readyO.length > 0 && <>
             <div style={{ ...s.title, marginTop: 24 }}>✓ De livrat ({readyO.length})</div>
             {readyO.map(o => (
-              <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${colors.champagne}` }}>
+              <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${colors.success}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span style={{ fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</span>
-                  <span style={{ fontSize: 18, color: colors.champagne, fontWeight: 500 }}>{o.total} LEI</span>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</div>
+                    <div style={{ fontSize: 10, color: colors.textMuted }}>{new Date(o.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
                 </div>
-                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 12 }}>{o.order_items?.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button onClick={() => handleMarkPaid(o.id, 'cash')} style={{ ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.success}`, color: colors.success }}>💵 Cash</button>
-                  <button onClick={() => handleMarkPaid(o.id, 'card')} style={{ ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.normal}`, color: colors.normal }}>💳 Card</button>
+                {renderOrderItems(o.order_items)}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+                  <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Încasează:</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <button onClick={() => handleMarkPaid(o.id, 'cash')} style={{ ...s.btn, backgroundColor: colors.success, color: '#fff' }}>💵 Cash</button>
+                    <button onClick={() => handleMarkPaid(o.id, 'card')} style={{ ...s.btn, backgroundColor: colors.normal, color: '#fff' }}>💳 Card</button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -255,13 +292,8 @@ export default function StaffDashboard() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
                 </div>
-                {o.order_items?.map((i, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
-                    <span>{i.quantity}× {i.name}</span>
-                    <span style={{ color: colors.textMuted }}>{i.subtotal} LEI</span>
-                  </div>
-                ))}
-                <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+                {renderOrderItems(o.order_items)}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Plată: {o.payment_type === 'cash' ? '💵 Cash' : '💳 Card'}</div>
                   <button onClick={() => handleOrderStatus(o.id, 'preparing')} style={{ ...s.btn, width: '100%', backgroundColor: colors.success, color: 'white' }}>✓ Accept</button>
                 </div>
@@ -272,7 +304,7 @@ export default function StaffDashboard() {
           {newO.length === 0 && prepO.length === 0 && readyO.length === 0 && myTableIdsRef.current.length > 0 && <div style={{ textAlign: 'center', padding: 48, color: colors.textMuted }}><div style={{ fontSize: 48, marginBottom: 16 }}>✓</div><p>Nicio comandă activă</p></div>}
         </>}
         
-        {activeTab === 'tables' && <>{renderGrid(true)}</>}
+        {activeTab === 'tables' && renderGrid(true)}
         
         {activeTab === 'reservations' && <>
           <div style={s.title}>Rezervări</div>
@@ -290,20 +322,89 @@ export default function StaffDashboard() {
         </>}
       </div>
 
-      {showOrderModal && orderTable && (
-        <div style={s.modal} onClick={() => setShowOrderModal(false)}>
-          <div style={s.modalBox} onClick={e => e.stopPropagation()}>
+      {/* Table Options Modal */}
+      {showTableModal && selectedTable && (
+        <div style={s.modal} onClick={() => setShowTableModal(false)}>
+          <div style={{...s.modalBox, maxWidth: 320}} onClick={e => e.stopPropagation()}>
             <div style={s.modalHead}>
-              <div><div style={{ fontSize: 16, fontWeight: 600 }}>Comandă - {orderTable.table_number}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{cart.length} produse • {cartTotal} LEI</div></div>
-              <button onClick={() => setShowOrderModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+              <span style={{ fontSize: 18, fontWeight: 600 }}>{selectedTable.table_number}</span>
+              <button onClick={() => setShowTableModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
             </div>
-            <div style={s.modalBody}>
-              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="🔍 Caută produs..." style={{...s.input, textAlign: 'left', marginBottom: 16 }} />
-              {!searchQuery && popularItems.length > 0 && <><div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>🔥 POPULAR</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{popularItems.map(i => (<button key={i.id} onClick={() => addToCart(i)} style={{...s.btnSm, backgroundColor: `${colors.error}20`, color: colors.error, border: `1px solid ${colors.error}`}}>{i.name}</button>))}</div></>}
-              {categories.map(cat => { const items = filteredMenu.filter(m => m.category_id === cat.id && m.is_available !== false); if (!items.length) return null; return (<div key={cat.id} style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: colors.champagne, marginBottom: 8 }}>{cat.name}</div>{items.map(i => (<div key={i.id} onClick={() => addToCart(i)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer' }}><div><div style={{ fontWeight: 500 }}>{i.name}</div>{i.description && <div style={{ fontSize: 11, color: colors.textMuted }}>{i.description}</div>}</div><span style={{ color: colors.champagne }}>{i.default_price} LEI</span></div>))}</div>) })}
-              {cart.length > 0 && <><div style={{ marginTop: 24, paddingTop: 16, borderTop: `2px solid ${colors.champagne}` }}><div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 12 }}>🛒 COȘ</div>{cart.map(i => (<div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}><div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => removeFromCart(i.id)} style={{...s.btnSm, backgroundColor: colors.error, color: '#fff', padding: '4px 10px' }}>−</button><span>{i.qty}× {i.name}</span></div><span style={{ color: colors.champagne }}>{i.default_price * i.qty} LEI</span></div>))}<div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: `1px solid ${colors.border}`, fontSize: 18, fontWeight: 600 }}><span>TOTAL</span><span style={{ color: colors.champagne }}>{cartTotal} LEI</span></div></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 20 }}><button onClick={() => handlePlaceOrder('cash')} style={{...s.btn, backgroundColor: colors.success, color: '#fff', padding: 16 }}>💵 Cash</button><button onClick={() => handlePlaceOrder('card')} style={{...s.btn, backgroundColor: colors.normal, color: '#fff', padding: 16 }}>💳 Card</button></div></>}
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <button onClick={openOrderModal} style={{ ...s.btn, width: '100%', backgroundColor: colors.champagne, color: colors.noir, padding: 18, fontSize: 14 }}>🍸 Comandă nouă</button>
+              <button onClick={openHistoryModal} style={{ ...s.btn, width: '100%', backgroundColor: 'transparent', border: `1px solid ${colors.border}`, color: colors.ivory, padding: 18, fontSize: 14 }}>📋 Istoric masă</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {showHistoryModal && selectedTable && (
+        <div style={s.modal} onClick={() => setShowHistoryModal(false)}>
+          <div style={s.modalBox} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHead}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>Istoric - {selectedTable.table_number}</span>
+              <button onClick={() => setShowHistoryModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={s.modalBody}>
+              {allTableOrders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 32, color: colors.textMuted }}>Nicio comandă</div>
+              ) : allTableOrders.map(o => (
+                <div key={o.id} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${colors.border}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: colors.textMuted }}>{new Date(o.created_at).toLocaleString('ro-RO')}</span>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, backgroundColor: o.status === 'delivered' ? `${colors.success}30` : o.status === 'new' ? `${colors.error}30` : `${colors.warning}30`, color: o.status === 'delivered' ? colors.success : o.status === 'new' ? colors.error : colors.warning }}>{o.status}</span>
+                  </div>
+                  {o.order_items?.map((i, idx) => (
+                    <div key={idx} style={{ fontSize: 13, padding: '2px 0' }}>{i.quantity}× {i.name}</div>
+                  ))}
+                  <div style={{ marginTop: 8, fontWeight: 600, color: colors.champagne }}>{o.total} LEI • {o.payment_type === 'cash' ? '💵' : '💳'} {o.payment_status === 'paid' ? '✓' : '○'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Modal with Floating Cart */}
+      {showOrderModal && selectedTable && (
+        <div style={{...s.modal, alignItems: 'flex-start', paddingTop: 0, paddingBottom: cart.length > 0 ? 180 : 0}}>
+          <div style={{...s.modalBox, maxHeight: 'none', borderRadius: 0, minHeight: '100vh'}} onClick={e => e.stopPropagation()}>
+            <div style={{...s.modalHead, position: 'sticky', top: 0, backgroundColor: colors.onyx, zIndex: 10}}>
+              <div><div style={{ fontSize: 16, fontWeight: 600 }}>Comandă - {selectedTable.table_number}</div></div>
+              <button onClick={() => { setShowOrderModal(false); setCart([]) }} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ padding: 16 }}>
+              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="🔍 Caută produs..." style={{...s.input, textAlign: 'left', marginBottom: 16 }} />
+              {!searchQuery && popularItems.length > 0 && <><div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>🔥 POPULAR</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{popularItems.map(i => (<button key={i.id} onClick={() => addToCart(i)} style={{...s.btnSm, backgroundColor: `${colors.error}20`, color: colors.error, border: `1px solid ${colors.error}`}}>{i.name}</button>))}</div></>}
+              {categories.map(cat => { const items = filteredMenu.filter(m => m.category_id === cat.id && m.is_available !== false); if (!items.length) return null; return (<div key={cat.id} style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: colors.champagne, marginBottom: 8, fontWeight: 600 }}>{cat.name}</div>{items.map(i => (<div key={i.id} onClick={() => addToCart(i)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer' }}><div><div style={{ fontWeight: 500 }}>{i.name}</div>{i.description && <div style={{ fontSize: 11, color: colors.textMuted }}>{i.description}</div>}</div><span style={{ color: colors.champagne, fontWeight: 500 }}>{i.default_price} LEI</span></div>))}</div>) })}
+            </div>
+          </div>
+          
+          {/* Floating Cart */}
+          {cart.length > 0 && (
+            <div style={s.floatingCart}>
+              <div style={{ maxHeight: 120, overflowY: 'auto', marginBottom: 12 }}>
+                {cart.map(i => (
+                  <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button onClick={() => removeFromCart(i.id)} style={{...s.btnSm, backgroundColor: colors.error, color: '#fff', padding: '2px 8px', fontSize: 14 }}>−</button>
+                      <span style={{ fontSize: 13 }}>{i.qty}× {i.name}</span>
+                    </div>
+                    <span style={{ color: colors.champagne, fontSize: 13 }}>{i.default_price * i.qty} LEI</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: `1px solid ${colors.border}`, marginBottom: 12 }}>
+                <span style={{ fontSize: 16, fontWeight: 600 }}>TOTAL</span>
+                <span style={{ fontSize: 20, fontWeight: 700, color: colors.champagne }}>{cartTotal} LEI</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <button onClick={() => handlePlaceOrder('cash')} style={{...s.btn, backgroundColor: colors.success, color: '#fff', padding: 14 }}>💵 Cash</button>
+                <button onClick={() => handlePlaceOrder('card')} style={{...s.btn, backgroundColor: colors.normal, color: '#fff', padding: 14 }}>💳 Card</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
