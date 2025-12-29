@@ -29,6 +29,7 @@ export default function StaffDashboard() {
   const [showTableModal, setShowTableModal] = useState(false)
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [orderError, setOrderError] = useState('')
   const myTableIdsRef = useRef([])
   const audioRef = useRef(null)
 
@@ -61,12 +62,14 @@ export default function StaffDashboard() {
   }
 
   const loadOrders = async () => {
-    const { data } = await supabase.from('orders').select('*, event_tables(*)').eq('event_id', selectedEvent.id).in('event_table_id', myTableIdsRef.current.length ? myTableIdsRef.current : ['00000000-0000-0000-0000-000000000000']).in('status', ['new', 'preparing', 'ready']).order('created_at', { ascending: true })
+    const { data, error } = await supabase.from('orders').select('*, event_tables(*)').eq('event_id', selectedEvent.id).in('event_table_id', myTableIdsRef.current.length ? myTableIdsRef.current : ['00000000-0000-0000-0000-000000000000']).in('status', ['new', 'preparing', 'ready']).order('created_at', { ascending: true })
+    console.log('Orders loaded:', data, error)
     if (data) setOrders(data)
   }
 
   const loadTableHistory = async (tableId) => {
     const { data } = await supabase.from('orders').select('*, event_tables(*)').eq('event_id', selectedEvent.id).eq('event_table_id', tableId).order('created_at', { ascending: false }).limit(20)
+    console.log('History loaded:', data)
     if (data) setAllTableOrders(data)
   }
 
@@ -82,7 +85,9 @@ export default function StaffDashboard() {
   const handleLogout = () => { setWaiter(null); localStorage.removeItem('sip_waiter'); setOrders([]); setSelectedEvent(null) }
 
   const handleOrderStatus = async (orderId, newStatus) => {
-    const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
+    console.log('Updating order', orderId, 'to', newStatus)
+    const { data, error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId).select()
+    console.log('Update result:', data, error)
     if (!error) loadOrders()
   }
 
@@ -92,7 +97,7 @@ export default function StaffDashboard() {
   }
 
   const openTableOptions = (table) => { setSelectedTable(table); setShowTableModal(true) }
-  const openOrderModal = () => { setShowTableModal(false); setCart([]); setSearchQuery(''); setShowOrderModal(true) }
+  const openOrderModal = () => { setShowTableModal(false); setCart([]); setSearchQuery(''); setOrderError(''); setShowOrderModal(true) }
   const openHistoryModal = async () => { setShowTableModal(false); await loadTableHistory(selectedTable.id); setShowHistoryModal(true) }
   
   const addToCart = (item) => { setCart(prev => { const ex = prev.find(c => c.id === item.id); return ex ? prev.map(c => c.id === item.id ? {...c, qty: c.qty + 1} : c) : [...prev, {...item, qty: 1}] }) }
@@ -100,9 +105,46 @@ export default function StaffDashboard() {
   const cartTotal = cart.reduce((sum, i) => sum + (i.default_price * i.qty), 0)
 
   const handlePlaceOrder = async (paymentType) => {
-    if (!cart.length || !selectedTable) return
-    const { error } = await supabase.from('orders').insert({ venue_id: VENUE_ID, event_id: selectedEvent.id, event_table_id: selectedTable.id, waiter_id: waiter.id, order_items: cart.map(i => ({ menu_item_id: i.id, name: i.name, quantity: i.qty, unit_price: i.default_price, subtotal: i.default_price * i.qty })), total: cartTotal, status: 'preparing', payment_type: paymentType, payment_status: 'pending' })
-    if (!error) { setShowOrderModal(false); setCart([]); setSelectedTable(null); loadOrders() }
+    if (!cart.length || !selectedTable) {
+      console.log('No cart or table', cart, selectedTable)
+      return
+    }
+    
+    setOrderError('')
+    
+    const orderData = {
+      venue_id: VENUE_ID,
+      event_id: selectedEvent.id,
+      event_table_id: selectedTable.id,
+      waiter_id: waiter.id,
+      order_items: cart.map(i => ({
+        menu_item_id: i.id,
+        name: i.name,
+        quantity: i.qty,
+        unit_price: i.default_price,
+        subtotal: i.default_price * i.qty
+      })),
+      total: cartTotal,
+      status: 'preparing',
+      payment_type: paymentType,
+      payment_status: 'pending'
+    }
+    
+    console.log('Placing order:', orderData)
+    
+    const { data, error } = await supabase.from('orders').insert(orderData).select()
+    
+    console.log('Order result:', data, error)
+    
+    if (error) {
+      setOrderError(error.message)
+      alert('Eroare: ' + error.message)
+    } else {
+      setShowOrderModal(false)
+      setCart([])
+      setSelectedTable(null)
+      loadOrders()
+    }
   }
 
   const filteredMenu = searchQuery ? menuItems.filter(m => m.name?.toLowerCase().includes(searchQuery.toLowerCase())) : menuItems
@@ -172,7 +214,7 @@ export default function StaffDashboard() {
                   color: mine ? colors.champagne : colors.textMuted, 
                   opacity: mine ? 1 : 0.5
                 }}>
-                  {mine ? t.table_number : t.table_number}
+                  {t.table_number}
                 </div>
               )
             }
@@ -190,6 +232,57 @@ export default function StaffDashboard() {
         ) : (
           <div style={{ display: 'flex', gap: 12, marginTop: 12, fontSize: 10, color: colors.textMuted, flexWrap: 'wrap' }}>
             <span>🟡 Masa ta</span><span>🟠 Rezervată</span><span>🔵 Alte mese</span>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderOrderCard = (o, type) => {
+    const borderColor = type === 'new' ? colors.error : type === 'preparing' ? colors.warning : colors.success
+    const items = o.order_items || []
+    
+    return (
+      <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${borderColor}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>{o.event_tables?.table_number || 'Masă'}</div>
+            <div style={{ fontSize: 10, color: colors.textMuted }}>{new Date(o.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</div>
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: colors.champagne }}>{o.total} LEI</div>
+        </div>
+        
+        {/* Products list */}
+        <div style={{ backgroundColor: `${colors.noir}`, padding: 10, borderRadius: 6, marginBottom: 12 }}>
+          {items.length > 0 ? items.map((item, idx) => (
+            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, borderBottom: idx < items.length - 1 ? `1px solid ${colors.border}` : 'none' }}>
+              <span style={{ color: colors.ivory }}>{item.quantity}× {item.name}</span>
+              <span style={{ color: colors.textMuted }}>{item.subtotal || item.quantity * item.unit_price} LEI</span>
+            </div>
+          )) : (
+            <div style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>Nu sunt produse</div>
+          )}
+        </div>
+        
+        {/* Actions */}
+        {type === 'new' && (
+          <div>
+            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Plată: {o.payment_type === 'cash' ? '💵 Cash' : '💳 Card'}</div>
+            <button onClick={() => handleOrderStatus(o.id, 'preparing')} style={{ ...s.btn, width: '100%', backgroundColor: colors.success, color: 'white' }}>✓ Accept</button>
+          </div>
+        )}
+        
+        {type === 'preparing' && (
+          <button onClick={() => handleOrderStatus(o.id, 'ready')} style={{ ...s.btn, width: '100%', backgroundColor: colors.champagne, color: colors.noir }}>✓ Gata de servit</button>
+        )}
+        
+        {type === 'ready' && (
+          <div>
+            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Încasează:</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <button onClick={() => handleMarkPaid(o.id, 'cash')} style={{ ...s.btn, backgroundColor: colors.success, color: '#fff' }}>💵 Cash</button>
+              <button onClick={() => handleMarkPaid(o.id, 'card')} style={{ ...s.btn, backgroundColor: colors.normal, color: '#fff' }}>💳 Card</button>
+            </div>
           </div>
         )}
       </div>
@@ -249,79 +342,17 @@ export default function StaffDashboard() {
           
           {prepO.length > 0 && <>
             <div style={s.title}>⏳ În pregătire ({prepO.length})</div>
-            {prepO.map(o => (
-              <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${colors.warning}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</div>
-                    <div style={{ fontSize: 10, color: colors.textMuted }}>{new Date(o.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</div>
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
-                </div>
-                {o.order_items && o.order_items.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
-                    <span>{item.quantity}× {item.name}</span>
-                    <span style={{ color: colors.textMuted }}>{item.subtotal} LEI</span>
-                  </div>
-                ))}
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
-                  <button onClick={() => handleOrderStatus(o.id, 'ready')} style={{ ...s.btn, width: '100%', backgroundColor: colors.champagne, color: colors.noir }}>✓ Gata de servit</button>
-                </div>
-              </div>
-            ))}
+            {prepO.map(o => renderOrderCard(o, 'preparing'))}
           </>}
           
           {readyO.length > 0 && <>
             <div style={{ ...s.title, marginTop: 24 }}>✓ De livrat ({readyO.length})</div>
-            {readyO.map(o => (
-              <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${colors.success}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</div>
-                    <div style={{ fontSize: 10, color: colors.textMuted }}>{new Date(o.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</div>
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
-                </div>
-                {o.order_items && o.order_items.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
-                    <span>{item.quantity}× {item.name}</span>
-                    <span style={{ color: colors.textMuted }}>{item.subtotal} LEI</span>
-                  </div>
-                ))}
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
-                  <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Încasează:</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <button onClick={() => handleMarkPaid(o.id, 'cash')} style={{ ...s.btn, backgroundColor: colors.success, color: '#fff' }}>💵 Cash</button>
-                    <button onClick={() => handleMarkPaid(o.id, 'card')} style={{ ...s.btn, backgroundColor: colors.normal, color: '#fff' }}>💳 Card</button>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {readyO.map(o => renderOrderCard(o, 'ready'))}
           </>}
           
           {newO.length > 0 && <>
             <div style={{ ...s.title, marginTop: 24 }}>🔔 NOI ({newO.length})</div>
-            {newO.map(o => (
-              <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${colors.error}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</div>
-                    <div style={{ fontSize: 10, color: colors.textMuted }}>{new Date(o.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</div>
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
-                </div>
-                {o.order_items && o.order_items.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
-                    <span>{item.quantity}× {item.name}</span>
-                    <span style={{ color: colors.textMuted }}>{item.subtotal} LEI</span>
-                  </div>
-                ))}
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
-                  <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Plată: {o.payment_type === 'cash' ? '💵 Cash' : '💳 Card'}</div>
-                  <button onClick={() => handleOrderStatus(o.id, 'preparing')} style={{ ...s.btn, width: '100%', backgroundColor: colors.success, color: 'white' }}>✓ Accept</button>
-                </div>
-              </div>
-            ))}
+            {newO.map(o => renderOrderCard(o, 'new'))}
           </>}
           
           {newO.length === 0 && prepO.length === 0 && readyO.length === 0 && myTableIdsRef.current.length > 0 && <div style={{ textAlign: 'center', padding: 48, color: colors.textMuted }}><div style={{ fontSize: 48, marginBottom: 16 }}>✓</div><p>Nicio comandă activă</p></div>}
@@ -378,10 +409,18 @@ export default function StaffDashboard() {
                     <span style={{ fontSize: 11, color: colors.textMuted }}>{new Date(o.created_at).toLocaleString('ro-RO')}</span>
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, backgroundColor: o.status === 'delivered' ? `${colors.success}30` : o.status === 'new' ? `${colors.error}30` : `${colors.warning}30`, color: o.status === 'delivered' ? colors.success : o.status === 'new' ? colors.error : colors.warning }}>{o.status}</span>
                   </div>
-                  {o.order_items?.map((item, idx) => (
-                    <div key={idx} style={{ fontSize: 13, padding: '2px 0' }}>{item.quantity}× {item.name}</div>
-                  ))}
-                  <div style={{ marginTop: 8, fontWeight: 600, color: colors.champagne }}>{o.total} LEI • {o.payment_type === 'cash' ? '💵' : '💳'} {o.payment_status === 'paid' ? '✓' : '○'}</div>
+                  {/* Products in history */}
+                  <div style={{ backgroundColor: colors.noir, padding: 8, borderRadius: 6, marginBottom: 8 }}>
+                    {o.order_items && o.order_items.length > 0 ? o.order_items.map((item, idx) => (
+                      <div key={idx} style={{ fontSize: 13, padding: '3px 0', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{item.quantity}× {item.name}</span>
+                        <span style={{ color: colors.textMuted }}>{item.subtotal || item.quantity * item.unit_price} LEI</span>
+                      </div>
+                    )) : (
+                      <div style={{ fontSize: 12, color: colors.textMuted }}>-</div>
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 600, color: colors.champagne }}>{o.total} LEI • {o.payment_type === 'cash' ? '💵' : '💳'} {o.payment_status === 'paid' ? '✓ Plătit' : '○ Neplătit'}</div>
                 </div>
               ))}
             </div>
@@ -401,8 +440,15 @@ export default function StaffDashboard() {
             <button onClick={() => { setShowOrderModal(false); setCart([]) }} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 24, cursor: 'pointer', padding: 8 }}>✕</button>
           </div>
           
+          {/* Error message */}
+          {orderError && (
+            <div style={{ padding: 12, backgroundColor: colors.error, color: '#fff', textAlign: 'center', fontSize: 12 }}>
+              Eroare: {orderError}
+            </div>
+          )}
+          
           {/* Content - Scrollable */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: 16, paddingBottom: cart.length > 0 ? 200 : 16 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16, paddingBottom: cart.length > 0 ? 220 : 16 }}>
             <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="🔍 Caută produs..." style={{...s.input, textAlign: 'left', marginBottom: 16 }} />
             
             {!searchQuery && popularItems.length > 0 && (
