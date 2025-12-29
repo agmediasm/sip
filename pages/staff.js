@@ -308,8 +308,8 @@ export default function StaffDashboard() {
           <div style={{ marginTop: 16, fontSize: 11, color: colors.textMuted, textAlign: 'center' }}>💡 Click pe o masă pentru a adăuga un produs</div>
         )}
         {forReservations && (
-          <div style={{ display: 'flex', gap: 12, marginTop: 12, fontSize: 10, color: colors.textMuted, flexWrap: 'wrap' }}>
-            <span>🔴 Rezervată (click pentru detalii)</span><span>🔵 Disponibilă</span>
+          <div style={{ marginTop: 12, fontSize: 10, color: colors.textMuted }}>
+            <span>🔴 Click pe masă rezervată pentru detalii</span>
           </div>
         )}
       </div>
@@ -442,6 +442,26 @@ export default function StaffDashboard() {
         {activeTab === 'reservations' && <>
           <div style={s.title}>Rezervări</div>
           {renderGrid(false, true)}
+          <div style={{ marginTop: 24 }}>
+            {reservations.length === 0 ? <div style={{ textAlign: 'center', padding: 24, color: colors.textMuted }}>Nicio rezervare</div> : reservations.map(r => {
+              const resTable = eventTables.find(t => t.id === r.event_table_id)
+              return (
+                <div key={r.id} style={s.card} onClick={() => { setSelectedReservation({ ...r, table: resTable }); setShowReservationModal(true) }}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer' }}>
+                    <div style={{ width: 44, height: 44, backgroundColor: `${colors.error}25`, border: `2px solid ${colors.error}`, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: colors.error }}>
+                      <span style={{ fontSize: 12 }}>🔒</span>
+                      <span>{resTable?.table_number || '?'}</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500 }}>{r.customer_name} {r.is_vip && '⭐'}</div>
+                      <div style={{ fontSize: 11, color: colors.textMuted }}>🕐 {r.reservation_time} • 👥 {r.party_size}p</div>
+                    </div>
+                    <div style={{ color: colors.textMuted, fontSize: 16 }}>›</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </>}
       </div>
 
