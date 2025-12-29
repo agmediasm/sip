@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
-import { supabase, getEvents, getEventTables, getEventMenu, getCategories, loginWaiter, getTableAssignments, getEventReservations, updateOrder } from '../lib/supabase'
+import { supabase, getEvents, getEventTables, getEventMenu, getCategories, loginWaiter, getTableAssignments, getEventReservations } from '../lib/supabase'
 
 const VENUE_ID = '11111111-1111-1111-1111-111111111111'
 const colors = { noir: '#08080a', onyx: '#141416', champagne: '#d4af37', platinum: '#e5e4e2', ivory: '#fffff0', border: 'rgba(255,255,255,0.12)', textMuted: 'rgba(255,255,255,0.55)', success: '#22c55e', error: '#ef4444', warning: '#f59e0b', vip: '#d4af37', normal: '#3b82f6', bar: '#8b5cf6' }
@@ -18,113 +18,47 @@ export default function StaffDashboard() {
   const [reservations, setReservations] = useState([])
   const [tableAssignments, setTableAssignments] = useState([])
   const [activeTab, setActiveTab] = useState('orders')
+  const [activeZone, setActiveZone] = useState('front')
   const [newOrderAlert, setNewOrderAlert] = useState(false)
-  const [selectedTable, setSelectedTable] = useState(null)
-  const [tableOrders, setTableOrders] = useState([])
-  const [showOrderModal, setShowOrderModal] = useState(false)
   const [orderTable, setOrderTable] = useState(null)
   const [menuItems, setMenuItems] = useState([])
   const [categories, setCategories] = useState([])
   const [cart, setCart] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [showOrderModal, setShowOrderModal] = useState(false)
   const myTableIdsRef = useRef([])
   const audioRef = useRef(null)
 
-  useEffect(() => {
-    const saved = localStorage.getItem('sip_waiter')
-    if (saved) {
-      try { setWaiter(JSON.parse(saved)) } catch(e) {}
-    }
-  }, [])
-
-  useEffect(() => {
-    if (waiter) {
-      loadEvents()
-    }
-  }, [waiter])
-
-  useEffect(() => {
-    if (selectedEvent && waiter) {
-      loadEventData()
-    }
-  }, [selectedEvent, waiter])
-
+  useEffect(() => { const saved = localStorage.getItem('sip_waiter'); if (saved) try { setWaiter(JSON.parse(saved)) } catch(e) {} }, [])
+  useEffect(() => { if (waiter) loadEvents() }, [waiter])
+  useEffect(() => { if (selectedEvent && waiter) loadEventData() }, [selectedEvent, waiter])
+  
   useEffect(() => {
     if (!selectedEvent || !waiter) return
-    
-    const channel = supabase.channel('staff-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `event_id=eq.${selectedEvent.id}` }, (payload) => {
-        if (payload.eventType === 'INSERT' && myTableIdsRef.current.includes(payload.new.event_table_id)) {
-          setNewOrderAlert(true)
-          playSound()
-          setTimeout(() => setNewOrderAlert(false), 3000)
-          loadOrders()
-        } else if (payload.eventType === 'UPDATE') {
-          loadOrders()
-        }
-      })
-      .subscribe()
-    
+    const channel = supabase.channel('staff-orders').on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `event_id=eq.${selectedEvent.id}` }, (payload) => {
+      if (payload.eventType === 'INSERT' && myTableIdsRef.current.includes(payload.new.event_table_id)) { setNewOrderAlert(true); playSound(); setTimeout(() => setNewOrderAlert(false), 3000) }
+      loadOrders()
+    }).subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [selectedEvent, waiter])
 
-  const playSound = () => {
-    try {
-      if (!audioRef.current) {
-        audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleA0GVaHj6tCHNx0lXbXv8sRqKg')
-      }
-      audioRef.current.play().catch(() => {})
-    } catch(e) {}
-  }
-
-  const loadEvents = async () => {
-    const { data } = await getEvents(VENUE_ID)
-    if (data?.length) {
-      setEvents(data)
-      setSelectedEvent(data[0])
-    }
-  }
-
+  const playSound = () => { try { if (!audioRef.current) audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleA0GVaHj6tCHNx0lXbXv8sRqKg'); audioRef.current.play().catch(() => {}) } catch(e) {} }
+  const loadEvents = async () => { const { data } = await getEvents(VENUE_ID); if (data?.length) { setEvents(data); setSelectedEvent(data[0]) } }
+  
   const loadEventData = async () => {
     setLoading(true)
-    const [tablesRes, assignRes, resRes, menuRes, catsRes] = await Promise.all([
-      getEventTables(selectedEvent.id),
-      getTableAssignments(selectedEvent.id),
-      getEventReservations(selectedEvent.id),
-      getEventMenu(selectedEvent.id),
-      getCategories(VENUE_ID)
-    ])
-    
+    const [tablesRes, assignRes, resRes, menuRes, catsRes] = await Promise.all([getEventTables(selectedEvent.id), getTableAssignments(selectedEvent.id), getEventReservations(selectedEvent.id), getEventMenu(selectedEvent.id), getCategories(VENUE_ID)])
     if (tablesRes.data) setEventTables(tablesRes.data)
-    if (assignRes.data) {
-      setTableAssignments(assignRes.data)
-      const myIds = assignRes.data.filter(a => a.waiter_id === waiter.id).map(a => a.event_table_id)
-      myTableIdsRef.current = myIds
-    }
+    if (assignRes.data) { setTableAssignments(assignRes.data); myTableIdsRef.current = assignRes.data.filter(a => a.waiter_id === waiter.id).map(a => a.event_table_id) }
     if (resRes.data) setReservations(resRes.data)
-    if (menuRes.data) {
-      const items = menuRes.data.map(em => ({
-        ...em.menu_items,
-        custom_price: em.custom_price,
-        default_price: em.custom_price || em.menu_items?.default_price
-      }))
-      setMenuItems(items)
-    }
+    if (menuRes.data) setMenuItems(menuRes.data.map(em => ({ ...em.menu_items, custom_price: em.custom_price, default_price: em.custom_price || em.menu_items?.default_price })))
     if (catsRes.data) setCategories(catsRes.data)
-    
     await loadOrders()
     setLoading(false)
   }
 
   const loadOrders = async () => {
-    const { data } = await supabase
-      .from('orders')
-      .select('*, event_tables(*)')
-      .eq('event_id', selectedEvent.id)
-      .in('event_table_id', myTableIdsRef.current.length ? myTableIdsRef.current : ['00000000-0000-0000-0000-000000000000'])
-      .in('status', ['new', 'preparing', 'ready'])
-      .order('created_at', { ascending: false })
-    
+    const { data } = await supabase.from('orders').select('*, event_tables(*)').eq('event_id', selectedEvent.id).in('event_table_id', myTableIdsRef.current.length ? myTableIdsRef.current : ['00000000-0000-0000-0000-000000000000']).in('status', ['new', 'preparing', 'ready']).order('created_at', { ascending: true })
     if (data) setOrders(data)
   }
 
@@ -132,94 +66,37 @@ export default function StaffDashboard() {
     if (!phoneInput) return
     setLoginError('')
     const { data, error } = await loginWaiter(phoneInput.replace(/\s/g, ''))
-    if (error || !data) {
-      setLoginError('Număr invalid sau cont inactiv')
-      return
-    }
+    if (error || !data) { setLoginError('Număr invalid sau cont inactiv'); return }
     setWaiter(data)
     localStorage.setItem('sip_waiter', JSON.stringify(data))
   }
 
-  const handleLogout = () => {
-    setWaiter(null)
-    localStorage.removeItem('sip_waiter')
-    setOrders([])
-    setSelectedEvent(null)
-  }
+  const handleLogout = () => { setWaiter(null); localStorage.removeItem('sip_waiter'); setOrders([]); setSelectedEvent(null) }
 
-  const handleOrderStatus = async (orderId, status) => {
-    await updateOrder(orderId, { status })
-    loadOrders()
+  const handleOrderStatus = async (orderId, newStatus) => {
+    console.log('Updating order', orderId, 'to', newStatus)
+    const { data, error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId).select()
+    console.log('Update result:', data, error)
+    if (!error) loadOrders()
   }
 
   const handleMarkPaid = async (orderId, paymentType) => {
-    await updateOrder(orderId, { status: 'delivered', payment_status: 'paid', payment_type: paymentType })
-    loadOrders()
+    const { error } = await supabase.from('orders').update({ status: 'delivered', payment_status: 'paid', payment_type: paymentType }).eq('id', orderId)
+    if (!error) loadOrders()
   }
 
-  const openTableOrder = (table) => {
-    setOrderTable(table)
-    setCart([])
-    setSearchQuery('')
-    setShowOrderModal(true)
-  }
-
-  const addToCart = (item) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.id === item.id)
-      if (existing) {
-        return prev.map(c => c.id === item.id ? {...c, qty: c.qty + 1} : c)
-      }
-      return [...prev, {...item, qty: 1}]
-    })
-  }
-
-  const removeFromCart = (itemId) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.id === itemId)
-      if (existing && existing.qty > 1) {
-        return prev.map(c => c.id === itemId ? {...c, qty: c.qty - 1} : c)
-      }
-      return prev.filter(c => c.id !== itemId)
-    })
-  }
-
+  const openTableOrder = (table) => { setOrderTable(table); setCart([]); setSearchQuery(''); setShowOrderModal(true) }
+  const addToCart = (item) => { setCart(prev => { const ex = prev.find(c => c.id === item.id); return ex ? prev.map(c => c.id === item.id ? {...c, qty: c.qty + 1} : c) : [...prev, {...item, qty: 1}] }) }
+  const removeFromCart = (itemId) => { setCart(prev => { const ex = prev.find(c => c.id === itemId); return ex?.qty > 1 ? prev.map(c => c.id === itemId ? {...c, qty: c.qty - 1} : c) : prev.filter(c => c.id !== itemId) }) }
   const cartTotal = cart.reduce((sum, i) => sum + (i.default_price * i.qty), 0)
 
   const handlePlaceOrder = async (paymentType) => {
     if (!cart.length || !orderTable) return
-    
-    const orderItems = cart.map(i => ({
-      menu_item_id: i.id,
-      name: i.name,
-      quantity: i.qty,
-      unit_price: i.default_price,
-      subtotal: i.default_price * i.qty
-    }))
-    
-    const { error } = await supabase.from('orders').insert({
-      venue_id: VENUE_ID,
-      event_id: selectedEvent.id,
-      event_table_id: orderTable.id,
-      waiter_id: waiter.id,
-      order_items: orderItems,
-      total: cartTotal,
-      status: 'preparing',
-      payment_type: paymentType,
-      payment_status: 'pending'
-    })
-    
-    if (!error) {
-      setShowOrderModal(false)
-      setCart([])
-      loadOrders()
-    }
+    const { error } = await supabase.from('orders').insert({ venue_id: VENUE_ID, event_id: selectedEvent.id, event_table_id: orderTable.id, waiter_id: waiter.id, order_items: cart.map(i => ({ menu_item_id: i.id, name: i.name, quantity: i.qty, unit_price: i.default_price, subtotal: i.default_price * i.qty })), total: cartTotal, status: 'preparing', payment_type: paymentType, payment_status: 'pending' })
+    if (!error) { setShowOrderModal(false); setCart([]); loadOrders() }
   }
 
-  const filteredMenu = searchQuery 
-    ? menuItems.filter(m => m.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-    : menuItems
-
+  const filteredMenu = searchQuery ? menuItems.filter(m => m.name?.toLowerCase().includes(searchQuery.toLowerCase())) : menuItems
   const popularItems = menuItems.filter(m => m.badge === 'popular').slice(0, 5)
 
   const s = {
@@ -240,55 +117,42 @@ export default function StaffDashboard() {
     modalBox: { backgroundColor: colors.onyx, width: '100%', maxWidth: 420, borderRadius: 12, border: `1px solid ${colors.border}`, maxHeight: '90vh', overflowY: 'auto' },
     modalHead: { padding: 16, borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
     modalBody: { padding: 16 },
-    alertBanner: { position: 'fixed', top: 0, left: 0, right: 0, backgroundColor: colors.error, color: '#fff', padding: 12, textAlign: 'center', fontWeight: 600, zIndex: 50, animation: 'pulse 1s infinite' }
+    alertBanner: { position: 'fixed', top: 0, left: 0, right: 0, backgroundColor: colors.error, color: '#fff', padding: 12, textAlign: 'center', fontWeight: 600, zIndex: 50 },
+    zoneTabs: { display: 'flex', marginBottom: 12, border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' },
+    zoneTab: { flex: 1, padding: '10px 16px', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer' },
+    stage: { backgroundColor: `${colors.champagne}15`, border: `2px solid ${colors.champagne}`, borderRadius: 8, padding: '8px 0', textAlign: 'center', fontSize: 10, fontWeight: 700, color: colors.champagne, letterSpacing: 2, marginBottom: 8 }
   }
 
-  const renderGrid = (showMyOnly, clickable) => {
+  const renderGrid = (clickable) => {
     const cellSize = 40, gap = 4
-    const maxRow = Math.max(...eventTables.map(t => t.grid_row), 5)
-    const maxCol = Math.max(...eventTables.map(t => t.grid_col), 7)
+    const zoneTables = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
+    const maxRow = zoneTables.length ? Math.max(...zoneTables.map(t => t.grid_row)) + 1 : 6
+    const maxCol = zoneTables.length ? Math.max(...zoneTables.map(t => t.grid_col)) + 1 : 8
     
     return (
       <div style={{ overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${maxCol + 1}, ${cellSize}px)`, gap, padding: 8, backgroundColor: colors.noir, border: `1px solid ${colors.border}`, borderRadius: 8, width: 'fit-content' }}>
-          {Array.from({ length: maxRow + 1 }).map((_, row) => 
-            Array.from({ length: maxCol + 1 }).map((_, col) => {
-              const t = eventTables.find(t => t.grid_row === row && t.grid_col === col)
-              if (!t) return <div key={`${row}-${col}`} style={{ width: cellSize, height: cellSize }} />
-              
-              const mine = myTableIdsRef.current.includes(t.id)
-              const hRes = reservations.some(r => r.event_table_id === t.id)
-              const cfg = { vip: colors.vip, normal: colors.normal, bar: colors.bar }[t.table_type] || colors.normal
-              const showTxt = !showMyOnly || mine
-              
-              return (
-                <div 
-                  key={`${row}-${col}`} 
-                  onClick={() => clickable && mine && openTableOrder(t)}
-                  style={{ 
-                    width: cellSize, 
-                    height: cellSize, 
-                    borderRadius: 6, 
-                    border: `2px solid ${hRes ? colors.warning : mine ? colors.champagne : cfg}`,
-                    backgroundColor: hRes ? `${colors.warning}25` : mine ? `${colors.champagne}25` : `${cfg}15`, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    cursor: clickable && mine ? 'pointer' : 'default', 
-                    fontSize: 9, 
-                    fontWeight: 700, 
-                    color: hRes ? colors.warning : mine ? colors.champagne : cfg, 
-                    opacity: showMyOnly && !mine ? 0.4 : 1 
-                  }}
-                >
-                  {showTxt ? t.table_number : ''}
-                </div>
-              )
-            })
-          )}
+        <div style={s.zoneTabs}>
+          <button onClick={() => setActiveZone('front')} style={{...s.zoneTab, backgroundColor: activeZone === 'front' ? colors.champagne : 'transparent', color: activeZone === 'front' ? colors.noir : colors.textMuted}}>🎭 Față</button>
+          <button onClick={() => setActiveZone('back')} style={{...s.zoneTab, backgroundColor: activeZone === 'back' ? colors.champagne : 'transparent', color: activeZone === 'back' ? colors.noir : colors.textMuted}}>🎪 Spate</button>
         </div>
+        {activeZone === 'front' && <div style={s.stage}>🎭 SCENĂ</div>}
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${maxCol}, ${cellSize}px)`, gap, padding: 8, backgroundColor: colors.noir, border: `1px solid ${colors.border}`, borderRadius: 8, width: 'fit-content' }}>
+          {Array.from({ length: maxRow }).map((_, row) => Array.from({ length: maxCol }).map((_, col) => {
+            const t = zoneTables.find(t => t.grid_row === row && t.grid_col === col)
+            if (!t) return <div key={`${row}-${col}`} style={{ width: cellSize, height: cellSize }} />
+            const mine = myTableIdsRef.current.includes(t.id)
+            const hRes = reservations.some(r => r.event_table_id === t.id)
+            const cfg = { vip: colors.vip, normal: colors.normal, bar: colors.bar }[t.table_type] || colors.normal
+            return (
+              <div key={`${row}-${col}`} onClick={() => clickable && mine && openTableOrder(t)} style={{ width: cellSize, height: cellSize, borderRadius: 6, border: `2px solid ${hRes ? colors.warning : mine ? colors.champagne : cfg}`, backgroundColor: hRes ? `${colors.warning}25` : mine ? `${colors.champagne}25` : `${cfg}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: clickable && mine ? 'pointer' : 'default', fontSize: 9, fontWeight: 700, color: hRes ? colors.warning : mine ? colors.champagne : cfg }}>
+                {t.table_number}
+              </div>
+            )
+          }))}
+        </div>
+        {activeZone === 'back' && <div style={{...s.stage, marginTop: 8, marginBottom: 0}}>🎪 SCENĂ</div>}
         <div style={{ display: 'flex', gap: 12, marginTop: 12, fontSize: 10, color: colors.textMuted, flexWrap: 'wrap' }}>
-          <span>🟡 Masa ta (click = comandă)</span>
+          <span>🟡 Masa ta</span>
           <span>🟠 Rezervată</span>
           <span>🔵 Alte mese</span>
         </div>
@@ -325,7 +189,7 @@ export default function StaffDashboard() {
       <header style={s.header}>
         <Link href="/" style={{ textDecoration: 'none' }}><span style={s.logo}>S I P</span></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: colors.success }} title="Live" />
+          <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: colors.success }} />
           <span style={{ fontSize: 12, color: colors.platinum }}>👤 {waiter.name}</span>
           <button onClick={handleLogout} style={{ ...s.btn, backgroundColor: 'transparent', color: colors.textMuted, padding: 8 }}>Ieși</button>
         </div>
@@ -338,31 +202,55 @@ export default function StaffDashboard() {
       </div>
       
       <div style={s.tabs}>
-        {[
-          { id: 'orders', label: `🔔 Comenzi ${newO.length > 0 ? `(${newO.length})` : ''}` },
-          { id: 'tables', label: '🗺️ Mesele mele' },
-          { id: 'reservations', label: '📋 Rezervări' }
-        ].map(tab => (
+        {[{ id: 'orders', label: `🔔 Comenzi ${newO.length > 0 ? `(${newO.length})` : ''}` }, { id: 'tables', label: '🗺️ Mesele mele' }, { id: 'reservations', label: '📋 Rezervări' }].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{...s.tab, color: activeTab === tab.id ? colors.champagne : colors.textMuted, borderBottomColor: activeTab === tab.id ? colors.champagne : 'transparent'}}>{tab.label}</button>
         ))}
       </div>
       
       <div style={s.content}>
         {activeTab === 'orders' && <>
-          {myTableIdsRef.current.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 32, color: colors.warning }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
-              <p>Nu ai mese atribuite.</p>
-            </div>
-          )}
+          {myTableIdsRef.current.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: colors.warning }}><div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div><p>Nu ai mese atribuite.</p></div>}
+          
+          {prepO.length > 0 && <>
+            <div style={s.title}>⏳ În pregătire ({prepO.length})</div>
+            {prepO.map(o => (
+              <div key={o.id} style={{ ...s.card, opacity: 0.9 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</span>
+                    <span style={{ marginLeft: 12, color: colors.champagne }}>{o.total} LEI</span>
+                    <div style={{ fontSize: 10, color: colors.textMuted }}>{o.order_items?.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
+                  </div>
+                  <button onClick={() => handleOrderStatus(o.id, 'ready')} style={{ ...s.btn, backgroundColor: colors.champagne, color: colors.noir }}>Gata →</button>
+                </div>
+              </div>
+            ))}
+          </>}
+          
+          {readyO.length > 0 && <>
+            <div style={{ ...s.title, marginTop: 24 }}>✓ De livrat ({readyO.length})</div>
+            {readyO.map(o => (
+              <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${colors.champagne}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <span style={{ fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</span>
+                  <span style={{ fontSize: 18, color: colors.champagne, fontWeight: 500 }}>{o.total} LEI</span>
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 12 }}>{o.order_items?.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button onClick={() => handleMarkPaid(o.id, 'cash')} style={{ ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.success}`, color: colors.success }}>💵 Cash</button>
+                  <button onClick={() => handleMarkPaid(o.id, 'card')} style={{ ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.normal}`, color: colors.normal }}>💳 Card</button>
+                </div>
+              </div>
+            ))}
+          </>}
           
           {newO.length > 0 && <>
-            <div style={s.title}>🔔 Noi ({newO.length})</div>
+            <div style={{ ...s.title, marginTop: 24 }}>🔔 NOI ({newO.length})</div>
             {newO.map(o => (
               <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${colors.error}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 500 }}>{o.table_number || o.event_tables?.table_number}</div>
+                    <div style={{ fontSize: 16, fontWeight: 500 }}>{o.event_tables?.table_number || o.table_number}</div>
                     <div style={{ fontSize: 10, color: colors.textMuted }}>{new Date(o.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
@@ -381,68 +269,20 @@ export default function StaffDashboard() {
             ))}
           </>}
           
-          {prepO.length > 0 && <>
-            <div style={{ ...s.title, marginTop: 24 }}>⏳ În pregătire ({prepO.length})</div>
-            {prepO.map(o => (
-              <div key={o.id} style={{ ...s.card, opacity: 0.9 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontWeight: 500 }}>{o.table_number || o.event_tables?.table_number}</span>
-                    <span style={{ marginLeft: 12, color: colors.champagne }}>{o.total} LEI</span>
-                    <div style={{ fontSize: 10, color: colors.textMuted }}>{o.order_items?.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
-                  </div>
-                  <button onClick={() => handleOrderStatus(o.id, 'ready')} style={{ ...s.btn, backgroundColor: colors.champagne, color: colors.noir }}>Gata →</button>
-                </div>
-              </div>
-            ))}
-          </>}
-          
-          {readyO.length > 0 && <>
-            <div style={{ ...s.title, marginTop: 24 }}>✓ De livrat ({readyO.length})</div>
-            {readyO.map(o => (
-              <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${colors.champagne}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span style={{ fontWeight: 500 }}>{o.table_number || o.event_tables?.table_number}</span>
-                  <span style={{ fontSize: 18, color: colors.champagne, fontWeight: 500 }}>{o.total} LEI</span>
-                </div>
-                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 12 }}>{o.order_items?.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button onClick={() => handleMarkPaid(o.id, 'cash')} style={{ ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.success}`, color: colors.success }}>💵 Cash</button>
-                  <button onClick={() => handleMarkPaid(o.id, 'card')} style={{ ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.normal}`, color: colors.normal }}>💳 Card</button>
-                </div>
-              </div>
-            ))}
-          </>}
-          
-          {newO.length === 0 && prepO.length === 0 && readyO.length === 0 && myTableIdsRef.current.length > 0 && (
-            <div style={{ textAlign: 'center', padding: 48, color: colors.textMuted }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>✓</div>
-              <p>Nicio comandă activă</p>
-            </div>
-          )}
+          {newO.length === 0 && prepO.length === 0 && readyO.length === 0 && myTableIdsRef.current.length > 0 && <div style={{ textAlign: 'center', padding: 48, color: colors.textMuted }}><div style={{ fontSize: 48, marginBottom: 16 }}>✓</div><p>Nicio comandă activă</p></div>}
         </>}
         
-        {activeTab === 'tables' && <>
-          <div style={s.title}>Click pe masa ta = adaugă comandă</div>
-          {renderGrid(true, true)}
-        </>}
+        {activeTab === 'tables' && <>{renderGrid(true)}</>}
         
         {activeTab === 'reservations' && <>
           <div style={s.title}>Rezervări</div>
-          {renderGrid(false, false)}
+          {renderGrid(false)}
           <div style={{ marginTop: 24 }}>
-            {reservations.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 24, color: colors.textMuted }}>Nicio rezervare</div>
-            ) : reservations.map(r => (
+            {reservations.length === 0 ? <div style={{ textAlign: 'center', padding: 24, color: colors.textMuted }}>Nicio rezervare</div> : reservations.map(r => (
               <div key={r.id} style={s.card}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ width: 40, height: 40, backgroundColor: `${colors.warning}25`, border: `2px solid ${colors.warning}`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: colors.warning }}>
-                    {r.event_tables?.table_number || '?'}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{r.customer_name} {r.is_vip && '⭐'}</div>
-                    <div style={{ fontSize: 11, color: colors.textMuted }}>🕐 {r.reservation_time} • 👥 {r.party_size}p</div>
-                  </div>
+                  <div style={{ width: 40, height: 40, backgroundColor: `${colors.warning}25`, border: `2px solid ${colors.warning}`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: colors.warning }}>{r.event_tables?.table_number || '?'}</div>
+                  <div><div style={{ fontSize: 14, fontWeight: 500 }}>{r.customer_name} {r.is_vip && '⭐'}</div><div style={{ fontSize: 11, color: colors.textMuted }}>🕐 {r.reservation_time} • 👥 {r.party_size}p</div></div>
                 </div>
               </div>
             ))}
@@ -450,70 +290,18 @@ export default function StaffDashboard() {
         </>}
       </div>
 
-      {/* Order Modal */}
       {showOrderModal && orderTable && (
         <div style={s.modal} onClick={() => setShowOrderModal(false)}>
           <div style={s.modalBox} onClick={e => e.stopPropagation()}>
             <div style={s.modalHead}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>Comandă - {orderTable.table_number}</div>
-                <div style={{ fontSize: 11, color: colors.textMuted }}>{cart.length} produse • {cartTotal} LEI</div>
-              </div>
+              <div><div style={{ fontSize: 16, fontWeight: 600 }}>Comandă - {orderTable.table_number}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{cart.length} produse • {cartTotal} LEI</div></div>
               <button onClick={() => setShowOrderModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
             </div>
             <div style={s.modalBody}>
               <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="🔍 Caută produs..." style={{...s.input, textAlign: 'left', marginBottom: 16 }} />
-              
-              {!searchQuery && popularItems.length > 0 && <>
-                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>🔥 POPULAR</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                  {popularItems.map(i => (
-                    <button key={i.id} onClick={() => addToCart(i)} style={{...s.btnSm, backgroundColor: `${colors.error}20`, color: colors.error, border: `1px solid ${colors.error}`}}>{i.name}</button>
-                  ))}
-                </div>
-              </>}
-              
-              {categories.map(cat => {
-                const items = filteredMenu.filter(m => m.category_id === cat.id && m.is_available !== false)
-                if (!items.length) return null
-                return (
-                  <div key={cat.id} style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, color: colors.champagne, marginBottom: 8 }}>{cat.name}</div>
-                    {items.map(i => (
-                      <div key={i.id} onClick={() => addToCart(i)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer' }}>
-                        <div>
-                          <div style={{ fontWeight: 500 }}>{i.name}</div>
-                          {i.description && <div style={{ fontSize: 11, color: colors.textMuted }}>{i.description}</div>}
-                        </div>
-                        <span style={{ color: colors.champagne }}>{i.default_price} LEI</span>
-                      </div>
-                    ))}
-                  </div>
-                )
-              })}
-
-              {cart.length > 0 && <>
-                <div style={{ marginTop: 24, paddingTop: 16, borderTop: `2px solid ${colors.champagne}` }}>
-                  <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 12 }}>🛒 COȘ</div>
-                  {cart.map(i => (
-                    <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <button onClick={() => removeFromCart(i.id)} style={{...s.btnSm, backgroundColor: colors.error, color: '#fff', padding: '4px 10px' }}>−</button>
-                        <span>{i.qty}× {i.name}</span>
-                      </div>
-                      <span style={{ color: colors.champagne }}>{i.default_price * i.qty} LEI</span>
-                    </div>
-                  ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: `1px solid ${colors.border}`, fontSize: 18, fontWeight: 600 }}>
-                    <span>TOTAL</span>
-                    <span style={{ color: colors.champagne }}>{cartTotal} LEI</span>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 20 }}>
-                  <button onClick={() => handlePlaceOrder('cash')} style={{...s.btn, backgroundColor: colors.success, color: '#fff', padding: 16 }}>💵 Cash</button>
-                  <button onClick={() => handlePlaceOrder('card')} style={{...s.btn, backgroundColor: colors.normal, color: '#fff', padding: 16 }}>💳 Card</button>
-                </div>
-              </>}
+              {!searchQuery && popularItems.length > 0 && <><div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>🔥 POPULAR</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{popularItems.map(i => (<button key={i.id} onClick={() => addToCart(i)} style={{...s.btnSm, backgroundColor: `${colors.error}20`, color: colors.error, border: `1px solid ${colors.error}`}}>{i.name}</button>))}</div></>}
+              {categories.map(cat => { const items = filteredMenu.filter(m => m.category_id === cat.id && m.is_available !== false); if (!items.length) return null; return (<div key={cat.id} style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: colors.champagne, marginBottom: 8 }}>{cat.name}</div>{items.map(i => (<div key={i.id} onClick={() => addToCart(i)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer' }}><div><div style={{ fontWeight: 500 }}>{i.name}</div>{i.description && <div style={{ fontSize: 11, color: colors.textMuted }}>{i.description}</div>}</div><span style={{ color: colors.champagne }}>{i.default_price} LEI</span></div>))}</div>) })}
+              {cart.length > 0 && <><div style={{ marginTop: 24, paddingTop: 16, borderTop: `2px solid ${colors.champagne}` }}><div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 12 }}>🛒 COȘ</div>{cart.map(i => (<div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}><div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => removeFromCart(i.id)} style={{...s.btnSm, backgroundColor: colors.error, color: '#fff', padding: '4px 10px' }}>−</button><span>{i.qty}× {i.name}</span></div><span style={{ color: colors.champagne }}>{i.default_price * i.qty} LEI</span></div>))}<div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: `1px solid ${colors.border}`, fontSize: 18, fontWeight: 600 }}><span>TOTAL</span><span style={{ color: colors.champagne }}>{cartTotal} LEI</span></div></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 20 }}><button onClick={() => handlePlaceOrder('cash')} style={{...s.btn, backgroundColor: colors.success, color: '#fff', padding: 16 }}>💵 Cash</button><button onClick={() => handlePlaceOrder('card')} style={{...s.btn, backgroundColor: colors.normal, color: '#fff', padding: 16 }}>💳 Card</button></div></>}
             </div>
           </div>
         </div>
