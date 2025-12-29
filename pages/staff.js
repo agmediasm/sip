@@ -130,7 +130,8 @@ export default function StaffDashboard() {
     zoneTabs: { display: 'flex', marginBottom: 12, border: `1px solid ${colors.border}`, borderRadius: 8, overflow: 'hidden' },
     zoneTab: { flex: 1, padding: '10px 16px', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer' },
     stage: { backgroundColor: `${colors.champagne}15`, border: `2px solid ${colors.champagne}`, borderRadius: 8, padding: '8px 0', textAlign: 'center', fontSize: 10, fontWeight: 700, color: colors.champagne, letterSpacing: 2, marginBottom: 8 },
-    floatingCart: { position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: colors.onyx, borderTop: `2px solid ${colors.champagne}`, padding: 16, zIndex: 110 }
+    floatingCart: { position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: colors.onyx, borderTop: `2px solid ${colors.champagne}`, padding: 16, zIndex: 120, boxShadow: '0 -4px 20px rgba(0,0,0,0.5)' },
+    addBtn: { width: 32, height: 32, borderRadius: '50%', border: 'none', backgroundColor: colors.champagne, color: colors.noir, fontSize: 18, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }
   }
 
   const renderGrid = (forMyTables) => {
@@ -156,8 +157,22 @@ export default function StaffDashboard() {
             
             if (forMyTables) {
               return (
-                <div key={`${row}-${col}`} onClick={() => mine && openTableOptions(t)} style={{ width: cellSize, height: cellSize, borderRadius: 8, border: mine ? `3px solid ${colors.champagne}` : `1px solid ${colors.border}`, backgroundColor: mine ? `${colors.champagne}40` : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: mine ? 'pointer' : 'default', fontSize: 10, fontWeight: 700, color: mine ? colors.champagne : 'transparent', opacity: mine ? 1 : 0.2, transition: 'all 0.2s' }}>
-                  {mine ? t.table_number : ''}
+                <div key={`${row}-${col}`} onClick={() => mine && openTableOptions(t)} style={{ 
+                  width: cellSize, 
+                  height: cellSize, 
+                  borderRadius: 8, 
+                  border: mine ? `3px solid ${colors.champagne}` : `1px solid ${colors.border}`, 
+                  backgroundColor: mine ? `${colors.champagne}40` : `${cfg}20`, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: mine ? 'pointer' : 'default', 
+                  fontSize: 10, 
+                  fontWeight: 700, 
+                  color: mine ? colors.champagne : colors.textMuted, 
+                  opacity: mine ? 1 : 0.5
+                }}>
+                  {mine ? t.table_number : t.table_number}
                 </div>
               )
             }
@@ -180,13 +195,6 @@ export default function StaffDashboard() {
       </div>
     )
   }
-
-  const renderOrderItems = (items) => items?.map((i, idx) => (
-    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
-      <span>{i.quantity}× {i.name}</span>
-      <span style={{ color: colors.textMuted }}>{i.subtotal} LEI</span>
-    </div>
-  ))
 
   if (!waiter) return (
     <div style={s.container}>
@@ -250,7 +258,12 @@ export default function StaffDashboard() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
                 </div>
-                {renderOrderItems(o.order_items)}
+                {o.order_items && o.order_items.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+                    <span>{item.quantity}× {item.name}</span>
+                    <span style={{ color: colors.textMuted }}>{item.subtotal} LEI</span>
+                  </div>
+                ))}
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
                   <button onClick={() => handleOrderStatus(o.id, 'ready')} style={{ ...s.btn, width: '100%', backgroundColor: colors.champagne, color: colors.noir }}>✓ Gata de servit</button>
                 </div>
@@ -269,7 +282,12 @@ export default function StaffDashboard() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
                 </div>
-                {renderOrderItems(o.order_items)}
+                {o.order_items && o.order_items.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+                    <span>{item.quantity}× {item.name}</span>
+                    <span style={{ color: colors.textMuted }}>{item.subtotal} LEI</span>
+                  </div>
+                ))}
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Încasează:</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -292,7 +310,12 @@ export default function StaffDashboard() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 500, color: colors.champagne }}>{o.total} LEI</div>
                 </div>
-                {renderOrderItems(o.order_items)}
+                {o.order_items && o.order_items.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+                    <span>{item.quantity}× {item.name}</span>
+                    <span style={{ color: colors.textMuted }}>{item.subtotal} LEI</span>
+                  </div>
+                ))}
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
                   <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Plată: {o.payment_type === 'cash' ? '💵 Cash' : '💳 Card'}</div>
                   <button onClick={() => handleOrderStatus(o.id, 'preparing')} style={{ ...s.btn, width: '100%', backgroundColor: colors.success, color: 'white' }}>✓ Accept</button>
@@ -355,8 +378,8 @@ export default function StaffDashboard() {
                     <span style={{ fontSize: 11, color: colors.textMuted }}>{new Date(o.created_at).toLocaleString('ro-RO')}</span>
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, backgroundColor: o.status === 'delivered' ? `${colors.success}30` : o.status === 'new' ? `${colors.error}30` : `${colors.warning}30`, color: o.status === 'delivered' ? colors.success : o.status === 'new' ? colors.error : colors.warning }}>{o.status}</span>
                   </div>
-                  {o.order_items?.map((i, idx) => (
-                    <div key={idx} style={{ fontSize: 13, padding: '2px 0' }}>{i.quantity}× {i.name}</div>
+                  {o.order_items?.map((item, idx) => (
+                    <div key={idx} style={{ fontSize: 13, padding: '2px 0' }}>{item.quantity}× {item.name}</div>
                   ))}
                   <div style={{ marginTop: 8, fontWeight: 600, color: colors.champagne }}>{o.total} LEI • {o.payment_type === 'cash' ? '💵' : '💳'} {o.payment_status === 'paid' ? '✓' : '○'}</div>
                 </div>
@@ -366,29 +389,64 @@ export default function StaffDashboard() {
         </div>
       )}
 
-      {/* Order Modal with Floating Cart */}
+      {/* Order Modal - Full Screen with Floating Cart */}
       {showOrderModal && selectedTable && (
-        <div style={{...s.modal, alignItems: 'flex-start', paddingTop: 0, paddingBottom: cart.length > 0 ? 180 : 0}}>
-          <div style={{...s.modalBox, maxHeight: 'none', borderRadius: 0, minHeight: '100vh'}} onClick={e => e.stopPropagation()}>
-            <div style={{...s.modalHead, position: 'sticky', top: 0, backgroundColor: colors.onyx, zIndex: 10}}>
-              <div><div style={{ fontSize: 16, fontWeight: 600 }}>Comandă - {selectedTable.table_number}</div></div>
-              <button onClick={() => { setShowOrderModal(false); setCart([]) }} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: colors.noir, zIndex: 110, display: 'flex', flexDirection: 'column' }}>
+          {/* Header - Fixed */}
+          <div style={{ padding: 16, borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.onyx, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>Comandă - {selectedTable.table_number}</div>
+              <div style={{ fontSize: 11, color: colors.textMuted }}>{cart.length} produse • {cartTotal} LEI</div>
             </div>
-            <div style={{ padding: 16 }}>
-              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="🔍 Caută produs..." style={{...s.input, textAlign: 'left', marginBottom: 16 }} />
-              {!searchQuery && popularItems.length > 0 && <><div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>🔥 POPULAR</div><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{popularItems.map(i => (<button key={i.id} onClick={() => addToCart(i)} style={{...s.btnSm, backgroundColor: `${colors.error}20`, color: colors.error, border: `1px solid ${colors.error}`}}>{i.name}</button>))}</div></>}
-              {categories.map(cat => { const items = filteredMenu.filter(m => m.category_id === cat.id && m.is_available !== false); if (!items.length) return null; return (<div key={cat.id} style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: colors.champagne, marginBottom: 8, fontWeight: 600 }}>{cat.name}</div>{items.map(i => (<div key={i.id} onClick={() => addToCart(i)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer' }}><div><div style={{ fontWeight: 500 }}>{i.name}</div>{i.description && <div style={{ fontSize: 11, color: colors.textMuted }}>{i.description}</div>}</div><span style={{ color: colors.champagne, fontWeight: 500 }}>{i.default_price} LEI</span></div>))}</div>) })}
-            </div>
+            <button onClick={() => { setShowOrderModal(false); setCart([]) }} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 24, cursor: 'pointer', padding: 8 }}>✕</button>
+          </div>
+          
+          {/* Content - Scrollable */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16, paddingBottom: cart.length > 0 ? 200 : 16 }}>
+            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="🔍 Caută produs..." style={{...s.input, textAlign: 'left', marginBottom: 16 }} />
+            
+            {!searchQuery && popularItems.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>🔥 POPULAR</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                  {popularItems.map(i => (
+                    <button key={i.id} onClick={() => addToCart(i)} style={{...s.btnSm, backgroundColor: `${colors.error}20`, color: colors.error, border: `1px solid ${colors.error}`}}>{i.name}</button>
+                  ))}
+                </div>
+              </>
+            )}
+            
+            {categories.map(cat => {
+              const items = filteredMenu.filter(m => m.category_id === cat.id && m.is_available !== false)
+              if (!items.length) return null
+              return (
+                <div key={cat.id} style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 12, color: colors.champagne, marginBottom: 10, fontWeight: 600, letterSpacing: 1 }}>{cat.name}</div>
+                  {items.map(i => (
+                    <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: `1px solid ${colors.border}` }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500 }}>{i.name}</div>
+                        {i.description && <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{i.description}</div>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ color: colors.champagne, fontWeight: 500 }}>{i.default_price} LEI</span>
+                        <button onClick={() => addToCart(i)} style={s.addBtn}>+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
           </div>
           
           {/* Floating Cart */}
           {cart.length > 0 && (
             <div style={s.floatingCart}>
-              <div style={{ maxHeight: 120, overflowY: 'auto', marginBottom: 12 }}>
+              <div style={{ maxHeight: 100, overflowY: 'auto', marginBottom: 12 }}>
                 {cart.map(i => (
-                  <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+                  <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <button onClick={() => removeFromCart(i.id)} style={{...s.btnSm, backgroundColor: colors.error, color: '#fff', padding: '2px 8px', fontSize: 14 }}>−</button>
+                      <button onClick={() => removeFromCart(i.id)} style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', backgroundColor: colors.error, color: '#fff', fontSize: 14, cursor: 'pointer' }}>−</button>
                       <span style={{ fontSize: 13 }}>{i.qty}× {i.name}</span>
                     </div>
                     <span style={{ color: colors.champagne, fontSize: 13 }}>{i.default_price * i.qty} LEI</span>
@@ -396,8 +454,8 @@ export default function StaffDashboard() {
                 ))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: `1px solid ${colors.border}`, marginBottom: 12 }}>
-                <span style={{ fontSize: 16, fontWeight: 600 }}>TOTAL</span>
-                <span style={{ fontSize: 20, fontWeight: 700, color: colors.champagne }}>{cartTotal} LEI</span>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>TOTAL</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color: colors.champagne }}>{cartTotal} LEI</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <button onClick={() => handlePlaceOrder('cash')} style={{...s.btn, backgroundColor: colors.success, color: '#fff', padding: 14 }}>💵 Cash</button>
