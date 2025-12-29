@@ -95,7 +95,6 @@ export default function ManagerDashboard() {
     if (evRes.data?.length) { setEvents(evRes.data); setSelectedEvent(evRes.data[0]) }
     if (allEvRes.data) setAllEvents(allEvRes.data)
     if (menuRes.data) {
-      // Deduplicate menu items by name+category
       const unique = []
       const seen = new Set()
       for (const item of menuRes.data) {
@@ -108,7 +107,6 @@ export default function ManagerDashboard() {
       setMenuItems(unique)
     }
     if (catsRes.data) {
-      // Deduplicate categories by name
       const uniqueCats = []
       const seenCats = new Set()
       for (const cat of catsRes.data) {
@@ -151,15 +149,12 @@ export default function ManagerDashboard() {
   const loadAnalytics = async () => { setAnalytics(await getAnalytics(VENUE_ID, analyticsPeriod)) }
   const loadWaiterStats = async (w) => { setSelectedWaiter(w); const g = await getWaiterStats(w.id), e = selectedEvent ? await getWaiterStats(w.id, selectedEvent.id) : { totalSales: 0, totalOrders: 0 }; setWaiterStats({ global: g, event: e }); setShowWaiterStatsModal(true) }
 
-  // =============================================
   // EVENT HANDLERS
-  // =============================================
   const handleCreateEvent = async () => {
     if (!eventForm.name || !eventForm.event_date) return
     const { data } = await createEvent({ ...eventForm, venue_id: VENUE_ID })
     if (data) {
       if (selectedTemplate) await applyLayoutTemplate(selectedTemplate, data.id)
-      // Use selected menu template or default
       const templateToApply = selectedMenuTemplate || defaultTemplateId
       if (templateToApply) await applyMenuTemplate(templateToApply, data.id)
       setSelectedEvent(data)
@@ -173,15 +168,11 @@ export default function ManagerDashboard() {
   const openEditEvent = (ev) => { setEditingEvent(ev); setEventForm({ name: ev.name, event_date: ev.event_date, start_time: ev.start_time, description: ev.description || '' }); setShowEventModal(true) }
   const handleDeleteEvent = async (e, id) => { e.stopPropagation(); if (!confirm('Ștergi?')) return; await deleteEvent(id); setSelectedEvent(null); loadData() }
 
-  // =============================================
   // LAYOUT HANDLERS
-  // =============================================
   const handleSaveLayout = async () => { if (!layoutName || !eventTables.length) return; await createLayoutTemplate(VENUE_ID, layoutName, eventTables); setLayoutName(''); setShowLayoutModal(false); const { data } = await getLayoutTemplates(VENUE_ID); if (data) setLayoutTemplates(data) }
   const handleDeleteTemplate = async (id) => { if (!confirm('Ștergi?')) return; await deleteLayoutTemplate(id); const { data } = await getLayoutTemplates(VENUE_ID); if (data) setLayoutTemplates(data) }
 
-  // =============================================
   // GRID HANDLERS
-  // =============================================
   const handleCellClick = async (row, col) => { 
     const zT = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
     if (zT.some(t => t.grid_row === row && t.grid_col === col)) return
@@ -195,9 +186,7 @@ export default function ManagerDashboard() {
   const addRow = () => activeZone === 'front' ? setFrontGridRows(p => p + 1) : setBackGridRows(p => p + 1)
   const addCol = () => activeZone === 'front' ? setFrontGridCols(p => p + 1) : setBackGridCols(p => p + 1)
 
-  // =============================================
-  // MENU HANDLERS - IMPROVED
-  // =============================================
+  // MENU HANDLERS
   const handleCreateProduct = async () => { 
     if (!productForm.name || !productForm.default_price || !productForm.category_id) return
     await createMenuItem({ ...productForm, venue_id: VENUE_ID, default_price: parseFloat(productForm.default_price) })
@@ -228,7 +217,6 @@ export default function ManagerDashboard() {
   const handleToggleStock = async (item) => { await updateMenuItem(item.id, { is_available: !item.is_available }); loadData() }
   const handleDeleteProduct = async (id) => { if (!confirm('Ștergi?')) return; await deleteMenuItem(id); loadData() }
   
-  // Move product up/down within category
   const handleMoveProduct = async (item, direction) => {
     const catItems = menuItems.filter(m => m.category_id === item.category_id).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
     const idx = catItems.findIndex(m => m.id === item.id)
@@ -241,7 +229,6 @@ export default function ManagerDashboard() {
     loadData()
   }
   
-  // Bulk price change
   const handleBulkPrice = async () => {
     const itemsToUpdate = selectMode && selectedItems.size > 0 
       ? menuItems.filter(m => selectedItems.has(m.id))
@@ -258,7 +245,6 @@ export default function ManagerDashboard() {
     loadData()
   }
   
-  // Bulk delete
   const handleBulkDelete = async () => {
     if (selectedItems.size === 0) return
     if (!confirm(`Ștergi ${selectedItems.size} produse?`)) return
@@ -268,7 +254,6 @@ export default function ManagerDashboard() {
     loadData()
   }
   
-  // Bulk toggle stock
   const handleBulkToggleStock = async (available) => {
     if (selectedItems.size === 0) return
     await bulkUpdateMenuItems(Array.from(selectedItems), { is_available: available })
@@ -276,7 +261,6 @@ export default function ManagerDashboard() {
     loadData()
   }
   
-  // Toggle item selection
   const toggleItemSelection = (id) => {
     const newSet = new Set(selectedItems)
     if (newSet.has(id)) newSet.delete(id)
@@ -284,7 +268,6 @@ export default function ManagerDashboard() {
     setSelectedItems(newSet)
   }
   
-  // Select all in category
   const selectAllInCategory = (catId) => {
     const catItems = menuItems.filter(m => m.category_id === catId)
     const allSelected = catItems.every(m => selectedItems.has(m.id))
@@ -297,9 +280,7 @@ export default function ManagerDashboard() {
     setSelectedItems(newSet)
   }
 
-  // =============================================
   // CATEGORY HANDLERS
-  // =============================================
   const handleCreateCategory = async () => { 
     const n = prompt('Nume categorie:')
     if (!n) return
@@ -332,7 +313,6 @@ export default function ManagerDashboard() {
     loadData()
   }
   
-  // Category reorder modal
   const openCategoryOrderModal = () => {
     setTempCategoryOrder([...categories])
     setShowCategoryOrderModal(true)
@@ -353,9 +333,7 @@ export default function ManagerDashboard() {
     loadData()
   }
 
-  // =============================================
   // MENU TEMPLATE HANDLERS
-  // =============================================
   const handleSaveMenuTemplate = async () => { 
     if (!menuTemplateName) return
     await createMenuTemplate(VENUE_ID, menuTemplateName, menuItems)
@@ -379,18 +357,14 @@ export default function ManagerDashboard() {
     setDefaultTemplateId(newDefault)
   }
 
-  // =============================================
   // WAITER HANDLERS
-  // =============================================
   const handleCreateWaiter = async () => { if (!waiterForm.name || !waiterForm.phone) return; await createWaiter({ ...waiterForm, venue_id: VENUE_ID }); setShowWaiterModal(false); setWaiterForm({ name: '', phone: '' }); loadWaiters() }
   const handleDeleteWaiter = async (e, id) => { e.stopPropagation(); if (!confirm('Ștergi?')) return; await deleteWaiter(id); loadWaiters() }
   const handleRestoreWaiter = async (id) => { await restoreWaiter(id); loadWaiters() }
   const handleToggleWaiterEvent = async (wid) => { if (!selectedEvent) return; const isA = eventWaiters.some(ew => ew.waiter_id === wid); isA ? await removeWaiterFromEvent(selectedEvent.id, wid) : await addWaiterToEvent(selectedEvent.id, wid); loadEventData(selectedEvent.id) }
   const handleAssignTable = async (tid, wid) => { await assignTableToWaiter(tid, wid, selectedEvent.id); loadEventData(selectedEvent.id) }
 
-  // =============================================
   // RESERVATION HANDLERS
-  // =============================================
   const handleTableClickForRes = (t) => { 
     const hR = reservations.find(r => r.event_table_id === t.id)
     if (hR) { 
@@ -404,17 +378,13 @@ export default function ManagerDashboard() {
   const handleCreateRes = async () => { if (!reservationForm.customer_name || !selectedTableForRes) return; await createReservation({ venue_id: VENUE_ID, event_id: selectedEvent.id, event_table_id: selectedTableForRes.id, ...reservationForm }); setShowReservationModal(false); setSelectedTableForRes(null); loadEventData(selectedEvent.id) }
   const handleDeleteRes = async (id) => { await deleteReservation(id); loadEventData(selectedEvent.id) }
 
-  // =============================================
   // CRM HANDLERS
-  // =============================================
   const handleDeleteCustomer = async (phone) => { if (!confirm('Ștergi clientul?')) return; await supabase.from('orders').update({ customer_phone: null, customer_name: null }).eq('customer_phone', phone); loadCustomers() }
 
   const getAssignedWaiter = (tid) => tableAssignments.find(a => a.event_table_id === tid)?.waiters
   const getTableRes = (tid) => reservations.find(r => r.event_table_id === tid)
 
-  // =============================================
   // STYLES
-  // =============================================
   const px = isDesktop ? 24 : 16
   const s = {
     container: { minHeight: '100vh', backgroundColor: colors.noir, color: colors.ivory, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
@@ -471,9 +441,7 @@ export default function ManagerDashboard() {
   const curRows = activeZone === 'front' ? frontGridRows : backGridRows
   const curCols = activeZone === 'front' ? frontGridCols : backGridCols
 
-  // =============================================
   // RENDER GRID
-  // =============================================
   const renderGrid = (forRes = false) => {
     const cellSize = isDesktop ? 48 : 36, gap = 4
     return (
@@ -516,12 +484,9 @@ export default function ManagerDashboard() {
     )
   }
 
-  // =============================================
-  // RENDER MENU TAB - IMPROVED
-  // =============================================
+  // RENDER MENU TAB
   const renderMenuTab = () => (
     <>
-      {/* Header with actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div style={s.title}>Meniu ({menuItems.length} produse)</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -535,7 +500,6 @@ export default function ManagerDashboard() {
         </div>
       </div>
 
-      {/* Bulk actions bar */}
       {selectMode && selectedItems.size > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, padding: 12, backgroundColor: `${colors.champagne}15`, borderRadius: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 12, color: colors.champagne, fontWeight: 600 }}>{selectedItems.size} selectate</span>
@@ -548,13 +512,11 @@ export default function ManagerDashboard() {
         </div>
       )}
 
-      {/* Categories and products */}
       {categories.map(cat => {
         const catItems = menuItems.filter(m => m.category_id === cat.id).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
         const allCatSelected = catItems.length > 0 && catItems.every(m => selectedItems.has(m.id))
         return (
           <div key={cat.id} style={{ marginBottom: 24 }}>
-            {/* Category header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '8px 12px', backgroundColor: `${colors.champagne}10`, borderRadius: 6 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 {selectMode && (
@@ -571,17 +533,14 @@ export default function ManagerDashboard() {
               </div>
             </div>
             
-            {/* Products */}
             {catItems.map((item, idx) => (
               <div key={item.id} style={{...s.card, opacity: item.is_available ? 1 : 0.5, display: 'flex', alignItems: 'center', gap: 12 }}>
-                {/* Checkbox for selection */}
                 {selectMode && (
                   <div onClick={() => toggleItemSelection(item.id)} style={{...s.checkbox, borderColor: selectedItems.has(item.id) ? colors.champagne : colors.border, backgroundColor: selectedItems.has(item.id) ? colors.champagne : 'transparent'}}>
                     {selectedItems.has(item.id) && <span style={{ color: colors.noir, fontSize: 12 }}>✓</span>}
                   </div>
                 )}
                 
-                {/* Move buttons */}
                 {!selectMode && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <button onClick={() => handleMoveProduct(item, 'up')} disabled={idx === 0} style={{ background: 'none', border: 'none', color: idx === 0 ? colors.border : colors.textMuted, fontSize: 10, cursor: idx === 0 ? 'default' : 'pointer', padding: 2 }}>▲</button>
@@ -589,7 +548,6 @@ export default function ManagerDashboard() {
                   </div>
                 )}
                 
-                {/* Product info */}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 500, marginBottom: 4 }}>
                     {item.name}
@@ -600,7 +558,6 @@ export default function ManagerDashboard() {
                   <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>{item.product_type || 'other'}</div>
                 </div>
                 
-                {/* Price and actions */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ fontSize: 15, color: colors.champagne, fontWeight: 500, marginRight: 8 }}>{item.default_price} LEI</div>
                   {!selectMode && <>
@@ -616,7 +573,6 @@ export default function ManagerDashboard() {
         )
       })}
 
-      {/* Menu Templates */}
       {menuTemplates?.length > 0 && (
         <div style={{ marginTop: 24 }}>
           <div style={s.title}>Template-uri meniu</div>
@@ -643,8 +599,373 @@ export default function ManagerDashboard() {
       )}
     </>
   )
+
+  // MAIN RETURN
+  return (
+    <div style={s.container}>
+      <Head><title>S I P - Manager</title></Head>
+      
+      <header style={s.header}>
+        <div style={s.logo}>S I P</div>
+        <Link href="/staff" style={{ fontSize: 12, color: colors.textMuted, textDecoration: 'none' }}>Staff →</Link>
+      </header>
+
+      <div style={s.tabs}>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{...s.tab, color: activeTab === tab.id ? colors.champagne : colors.textMuted, borderColor: activeTab === tab.id ? colors.champagne : 'transparent' }}>
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={s.content}>
+        {activeTab === 'overview' && (
+          <>
+            <div style={{ marginBottom: 24 }}>
+              <div style={s.filterRow}>
+                {['week', 'month', 'year', 'all'].map(p => (
+                  <button key={p} onClick={() => setAnalyticsPeriod(p)} style={{...s.filterBtn, backgroundColor: analyticsPeriod === p ? colors.champagne : 'transparent', color: analyticsPeriod === p ? colors.noir : colors.textMuted}}>{p === 'week' ? '7 zile' : p === 'month' ? '30 zile' : p === 'year' ? '1 an' : 'Total'}</button>
+                ))}
+              </div>
+              <div style={s.statsGrid}>
+                <div style={s.stat}><div style={s.statVal}>{analytics.totalRevenue?.toLocaleString() || 0}</div><div style={s.statLbl}>LEI TOTAL</div></div>
+                <div style={s.stat}><div style={s.statVal}>{analytics.totalOrders || 0}</div><div style={s.statLbl}>COMENZI</div></div>
+                <div style={s.stat}><div style={s.statVal}>{analytics.avgOrderValue || 0}</div><div style={s.statLbl}>MEDIE/COMANDĂ</div></div>
+                <div style={s.stat}><div style={s.statVal}>{analytics.uniqueCustomers || 0}</div><div style={s.statLbl}>CLIENȚI</div></div>
+              </div>
+            </div>
+            {selectedEvent && (
+              <div>
+                <div style={s.title}>{selectedEvent.name}</div>
+                <div style={s.statsGrid}>
+                  <div style={s.stat}><div style={s.statVal}>{eventAnalytics.totalRevenue?.toLocaleString() || 0}</div><div style={s.statLbl}>LEI</div></div>
+                  <div style={s.stat}><div style={s.statVal}>{eventAnalytics.totalOrders || 0}</div><div style={s.statLbl}>COMENZI</div></div>
+                  <div style={s.stat}><div style={s.statVal}>{eventTables.length}</div><div style={s.statLbl}>MESE</div></div>
+                  <div style={s.stat}><div style={s.statVal}>{reservations.length}</div><div style={s.statLbl}>REZERVĂRI</div></div>
+                </div>
+                {leaderboard.length > 0 && (
+                  <div style={{ marginTop: 24 }}>
+                    <div style={s.title}>Top Staff</div>
+                    {leaderboard.slice(0, 5).map((w, i) => (
+                      <div key={w.id} style={{...s.card, display: 'flex', alignItems: 'center', gap: 12}}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: i === 0 ? colors.champagne : colors.border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: i === 0 ? colors.noir : colors.textMuted }}>{i + 1}</div>
+                        <div style={{ flex: 1 }}><div style={{ fontWeight: 500 }}>{w.name}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{w.orderCount} comenzi</div></div>
+                        <div style={{ color: colors.champagne, fontWeight: 500 }}>{w.totalSales?.toLocaleString()} LEI</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'events' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={s.title}>Evenimente</div>
+              <button onClick={() => setShowEventModal(true)} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>+ Event</button>
+            </div>
+            {events.map(ev => (
+              <div key={ev.id} onClick={() => setSelectedEvent(ev)} style={{...s.card, border: `1px solid ${selectedEvent?.id === ev.id ? colors.champagne : colors.border}`, cursor: 'pointer'}}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{ev.name}</div>
+                    <div style={{ fontSize: 12, color: colors.textMuted }}>{ev.event_date} • {ev.start_time}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={(e) => { e.stopPropagation(); openEditEvent(ev) }} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.champagne, border: `1px solid ${colors.champagne}`}}>✏️</button>
+                    <button onClick={(e) => handleDeleteEvent(e, ev.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {allEvents.filter(e => !events.find(ev => ev.id === e.id)).length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <div style={s.title}>Evenimente trecute</div>
+                {allEvents.filter(e => !events.find(ev => ev.id === e.id)).slice(0, 10).map(ev => (
+                  <div key={ev.id} style={{...s.card, opacity: 0.6}}>
+                    <div style={{ fontWeight: 500 }}>{ev.name}</div>
+                    <div style={{ fontSize: 12, color: colors.textMuted }}>{ev.event_date}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'layout' && selectedEvent && (
+          <>
+            <div style={s.title}>Layout: {selectedEvent.name}</div>
+            {renderGrid(false)}
+            {layoutTemplates.length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <div style={s.title}>Template-uri salvate</div>
+                {layoutTemplates.map(t => (
+                  <div key={t.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <div><div style={{ fontWeight: 500 }}>{t.name}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{t.table_config?.length || 0} mese</div></div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={async () => { await applyLayoutTemplate(t.id, selectedEvent.id); loadEventData(selectedEvent.id) }} style={{...s.btnSm, backgroundColor: colors.champagne, color: colors.noir}}>Aplică</button>
+                      <button onClick={() => handleDeleteTemplate(t.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'reservations' && selectedEvent && (
+          <>
+            <div style={s.title}>Rezervări: {selectedEvent.name}</div>
+            <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16 }}>Click pe o masă pentru a adăuga/șterge rezervare</div>
+            {renderGrid(true)}
+            {reservations.length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <div style={s.title}>Lista rezervări ({reservations.length})</div>
+                {reservations.map(r => {
+                  const t = eventTables.find(t => t.id === r.event_table_id)
+                  return (
+                    <div key={r.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <div>
+                        <div style={{ fontWeight: 500 }}>{r.customer_name} {r.is_vip && <span style={{...s.badge, backgroundColor: colors.champagne, color: colors.noir}}>VIP</span>}</div>
+                        <div style={{ fontSize: 12, color: colors.textMuted }}>{t?.table_number} • {r.party_size} pers • {r.reservation_time}</div>
+                        {r.notes && <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>{r.notes}</div>}
+                      </div>
+                      <button onClick={() => handleDeleteRes(r.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'menu' && renderMenuTab()}
+
+        {activeTab === 'qr' && selectedEvent && (
+          <>
+            <div style={s.title}>QR Codes: {selectedEvent.name}</div>
+            <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16 }}>Link-uri pentru meniuri pe mese</div>
+            {eventTables.map(t => (
+              <div key={t.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <div>
+                  <div style={{ fontWeight: 500 }}>{t.table_number}</div>
+                  <div style={{ fontSize: 11, color: colors.textMuted }}>/order/{selectedEvent.id}/{t.id}</div>
+                </div>
+                <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/order/${selectedEvent.id}/${t.id}`)} style={{...s.btnSm, backgroundColor: colors.champagne, color: colors.noir}}>📋 Copy</button>
+              </div>
+            ))}
+          </>
+        )}
+
+        {activeTab === 'waiters' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={s.title}>Staff</div>
+              <button onClick={() => setShowWaiterModal(true)} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>+ Ospătar</button>
+            </div>
+            <div style={s.filterRow}>
+              {['active', 'deleted', 'all'].map(f => (
+                <button key={f} onClick={() => setWaiterFilter(f)} style={{...s.filterBtn, backgroundColor: waiterFilter === f ? colors.champagne : 'transparent', color: waiterFilter === f ? colors.noir : colors.textMuted}}>{f === 'active' ? 'Activi' : f === 'deleted' ? 'Șterși' : 'Toți'}</button>
+              ))}
+            </div>
+            {waiters.map(w => (
+              <div key={w.id} onClick={() => loadWaiterStats(w)} style={{...s.card, cursor: 'pointer', opacity: w.is_active ? 1 : 0.5}}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{w.name}</div>
+                    <div style={{ fontSize: 12, color: colors.textMuted }}>{w.phone}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {selectedEvent && (
+                      <button onClick={(e) => { e.stopPropagation(); handleToggleWaiterEvent(w.id) }} style={{...s.btnSm, backgroundColor: eventWaiters.some(ew => ew.waiter_id === w.id) ? colors.success : 'transparent', color: eventWaiters.some(ew => ew.waiter_id === w.id) ? '#fff' : colors.textMuted, border: `1px solid ${eventWaiters.some(ew => ew.waiter_id === w.id) ? colors.success : colors.border}`}}>
+                        {eventWaiters.some(ew => ew.waiter_id === w.id) ? '✓ Activ' : 'Adaugă'}
+                      </button>
+                    )}
+                    {w.is_active ? (
+                      <button onClick={(e) => handleDeleteWaiter(e, w.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button>
+                    ) : (
+                      <button onClick={(e) => { e.stopPropagation(); handleRestoreWaiter(w.id) }} style={{...s.btnSm, backgroundColor: colors.success, color: '#fff'}}>↩️</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {activeTab === 'customers' && (
+          <>
+            <div style={s.title}>Clienți ({customers.length})</div>
+            <div style={s.filterRow}>
+              {['all', 'week', 'month'].map(p => (
+                <button key={p} onClick={() => setCustomerFilter({...customerFilter, period: p})} style={{...s.filterBtn, backgroundColor: customerFilter.period === p ? colors.champagne : 'transparent', color: customerFilter.period === p ? colors.noir : colors.textMuted}}>{p === 'all' ? 'Toți' : p === 'week' ? '7 zile' : '30 zile'}</button>
+              ))}
+            </div>
+            {customers.map(c => (
+              <div key={c.phone} style={s.card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{c.name || 'Anonim'} {c.vipLevel > 0 && <span style={{...s.badge, backgroundColor: colors.champagne, color: colors.noir}}>VIP {c.vipLevel}</span>}</div>
+                    <div style={{ fontSize: 12, color: colors.textMuted }}>{c.phone}</div>
+                    <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>{c.orderCount} comenzi • {c.totalSpent?.toLocaleString()} LEI</div>
+                  </div>
+                  <button onClick={() => handleDeleteCustomer(c.phone)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* MODALS */}
+      
+      {/* Event Modal */}
+      {showEventModal && (
+        <div style={s.modal} onClick={closeEventModal}>
+          <div style={s.modalBox} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHead}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>{editingEvent ? 'Editează' : 'Eveniment nou'}</span>
+              <button onClick={closeEventModal} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={s.modalBody}>
               <label style={s.label}>Nume</label>
-              <input value={layoutName} onChange={e => setLayoutName(e.target.value)} style={s.input} />
+              <input value={eventForm.name} onChange={e => setEventForm({...eventForm, name: e.target.value})} style={s.input} placeholder="Vineri Seara" />
+              <label style={s.label}>Data</label>
+              <input type="date" value={eventForm.event_date} onChange={e => setEventForm({...eventForm, event_date: e.target.value})} style={s.input} />
+              <label style={s.label}>Ora start</label>
+              <input type="time" value={eventForm.start_time} onChange={e => setEventForm({...eventForm, start_time: e.target.value})} style={s.input} />
+              {!editingEvent && layoutTemplates.length > 0 && (
+                <>
+                  <label style={s.label}>Template Layout</label>
+                  <select value={selectedTemplate || ''} onChange={e => setSelectedTemplate(e.target.value || null)} style={s.select}>
+                    <option value="">Fără layout</option>
+                    {layoutTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </>
+              )}
+              {!editingEvent && menuTemplates.length > 0 && (
+                <>
+                  <label style={s.label}>Template Meniu</label>
+                  <select value={selectedMenuTemplate || ''} onChange={e => setSelectedMenuTemplate(e.target.value || null)} style={s.select}>
+                    <option value="">{defaultTemplateId ? 'Default' : 'Fără meniu'}</option>
+                    {menuTemplates.map(t => <option key={t.id} value={t.id}>{t.name} {defaultTemplateId === t.id ? '(default)' : ''}</option>)}
+                  </select>
+                </>
+              )}
+            </div>
+            <div style={s.modalFoot}>
+              <button onClick={closeEventModal} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button>
+              <button onClick={editingEvent ? handleUpdateEvent : handleCreateEvent} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>{editingEvent ? 'Salvează' : 'Creează'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Waiter Modal */}
+      {showWaiterModal && (
+        <div style={s.modal} onClick={() => setShowWaiterModal(false)}>
+          <div style={s.modalBox} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHead}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>Ospătar nou</span>
+              <button onClick={() => setShowWaiterModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={s.modalBody}>
+              <label style={s.label}>Nume</label>
+              <input value={waiterForm.name} onChange={e => setWaiterForm({...waiterForm, name: e.target.value})} style={s.input} placeholder="Ion Popescu" />
+              <label style={s.label}>Telefon</label>
+              <input value={waiterForm.phone} onChange={e => setWaiterForm({...waiterForm, phone: e.target.value})} style={s.input} placeholder="0712345678" />
+            </div>
+            <div style={s.modalFoot}>
+              <button onClick={() => setShowWaiterModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button>
+              <button onClick={handleCreateWaiter} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Adaugă</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reservation Modal */}
+      {showReservationModal && selectedTableForRes && (
+        <div style={s.modal} onClick={() => setShowReservationModal(false)}>
+          <div style={s.modalBox} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHead}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>Rezervare: {selectedTableForRes.table_number}</span>
+              <button onClick={() => setShowReservationModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={s.modalBody}>
+              <label style={s.label}>Nume client</label>
+              <input value={reservationForm.customer_name} onChange={e => setReservationForm({...reservationForm, customer_name: e.target.value})} style={s.input} placeholder="Ion Popescu" />
+              <label style={s.label}>Telefon</label>
+              <input value={reservationForm.customer_phone} onChange={e => setReservationForm({...reservationForm, customer_phone: e.target.value})} style={s.input} placeholder="0712345678" />
+              <label style={s.label}>Nr. persoane</label>
+              <input type="number" value={reservationForm.party_size} onChange={e => setReservationForm({...reservationForm, party_size: parseInt(e.target.value)})} style={s.input} />
+              <label style={s.label}>Ora</label>
+              <input type="time" value={reservationForm.reservation_time} onChange={e => setReservationForm({...reservationForm, reservation_time: e.target.value})} style={s.input} />
+              <label style={s.label}>Note</label>
+              <input value={reservationForm.notes} onChange={e => setReservationForm({...reservationForm, notes: e.target.value})} style={s.input} placeholder="Note speciale..." />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={reservationForm.is_vip} onChange={e => setReservationForm({...reservationForm, is_vip: e.target.checked})} />
+                <span style={{ fontSize: 13, color: colors.textMuted }}>Client VIP</span>
+              </label>
+            </div>
+            <div style={s.modalFoot}>
+              <button onClick={() => setShowReservationModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button>
+              <button onClick={handleCreateRes} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>Rezervă</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Modal */}
+      {showProductModal && (
+        <div style={s.modal} onClick={closeProductModal}>
+          <div style={s.modalBox} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHead}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>{editingProduct ? 'Editează produs' : 'Produs nou'}</span>
+              <button onClick={closeProductModal} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={s.modalBody}>
+              <label style={s.label}>Nume</label>
+              <input value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} style={s.input} placeholder="Mojito" />
+              <label style={s.label}>Descriere</label>
+              <input value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} style={s.input} placeholder="Rom, mentă, lime..." />
+              <label style={s.label}>Preț (LEI)</label>
+              <input type="number" value={productForm.default_price} onChange={e => setProductForm({...productForm, default_price: e.target.value})} style={s.input} placeholder="45" />
+              <label style={s.label}>Categorie</label>
+              <select value={productForm.category_id} onChange={e => setProductForm({...productForm, category_id: e.target.value})} style={s.select}>
+                <option value="">Selectează...</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <label style={s.label}>Tip</label>
+              <select value={productForm.product_type} onChange={e => setProductForm({...productForm, product_type: e.target.value})} style={s.select}>
+                {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <label style={s.label}>Badge</label>
+              <select value={productForm.badge} onChange={e => setProductForm({...productForm, badge: e.target.value})} style={s.select}>
+                <option value="">Fără</option>
+                {BADGES.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div style={s.modalFoot}>
+              <button onClick={closeProductModal} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button>
+              <button onClick={editingProduct ? handleUpdateProduct : handleCreateProduct} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>{editingProduct ? 'Salvează' : 'Adaugă'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Layout Save Modal */}
+      {showLayoutModal && (
+        <div style={s.modal} onClick={() => setShowLayoutModal(false)}>
+          <div style={s.modalBox} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHead}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>Salvează Layout</span>
+              <button onClick={() => setShowLayoutModal(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={s.modalBody}>
+              <label style={s.label}>Nume</label>
+              <input value={layoutName} onChange={e => setLayoutName(e.target.value)} style={s.input} placeholder="Layout Principal" />
             </div>
             <div style={s.modalFoot}>
               <button onClick={() => setShowLayoutModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button>
@@ -668,7 +989,7 @@ export default function ManagerDashboard() {
                 <div style={{ fontSize: 12, color: colors.textMuted }}>produse</div>
               </div>
               <label style={s.label}>Nume</label>
-              <input value={menuTemplateName} onChange={e => setMenuTemplateName(e.target.value)} style={s.input} />
+              <input value={menuTemplateName} onChange={e => setMenuTemplateName(e.target.value)} style={s.input} placeholder="Meniu Standard" />
             </div>
             <div style={s.modalFoot}>
               <button onClick={() => setShowMenuTemplateModal(false)} style={{...s.btn, backgroundColor: 'transparent', color: colors.textMuted, border: `1px solid ${colors.border}`}}>Anulează</button>
