@@ -36,25 +36,37 @@ export default function StaffDashboard() {
   const [selectedItemsForPayment, setSelectedItemsForPayment] = useState([])
   const [inactiveAlerts, setInactiveAlerts] = useState([])
   const [showAlertsPanel, setShowAlertsPanel] = useState(false)
-  const [dismissedTableIds, setDismissedTableIds] = useState(new Set())
+  const [dismissedTableIds, setDismissedTableIds] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sip_dismissed_tables')
+      if (saved) try { return new Set(JSON.parse(saved)) } catch(e) {}
+    }
+    return new Set()
+  })
   const myTableIdsRef = useRef([])
   const audioRef = useRef(null)
 
   useEffect(() => { const saved = localStorage.getItem('sip_waiter'); if (saved) try { setWaiter(JSON.parse(saved)) } catch(e) {} }, [])
+  useEffect(() => { if (dismissedTableIds.size > 0) localStorage.setItem('sip_dismissed_tables', JSON.stringify([...dismissedTableIds])); else localStorage.removeItem('sip_dismissed_tables') }, [dismissedTableIds])
   useEffect(() => { if (waiter) loadEvents() }, [waiter])
   useEffect(() => { if (selectedEvent && waiter) loadEventData() }, [selectedEvent, waiter])
   
   useEffect(() => {
     if (!selectedEvent || !waiter) return
-    const channel = supabase.channel('staff-orders')
+    const channelName = `staff-${waiter.id}-${selectedEvent.id}`
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `event_id=eq.${selectedEvent.id}` }, (payload) => {
+        console.log('Order change:', payload.eventType)
         if (payload.eventType === 'INSERT' && myTableIdsRef.current.includes(payload.new.event_table_id)) { setNewOrderAlert(true); playSound(); setTimeout(() => setNewOrderAlert(false), 3000) }
         loadOrders()
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_items' }, () => {
+        console.log('New order items')
         loadOrders()
       })
-      .subscribe()
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status)
+      })
     return () => { supabase.removeChannel(channel) }
   }, [selectedEvent, waiter])
 
