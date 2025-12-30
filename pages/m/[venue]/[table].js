@@ -402,125 +402,229 @@ export default function SmartMenuPage() {
       <div style={{
         ...s.container,
         background: `
-          radial-gradient(ellipse 80% 50% at 50% 40%, rgba(212, 175, 55, 0.15) 0%, transparent 50%),
-          radial-gradient(ellipse 60% 40% at 50% 45%, rgba(212, 175, 55, 0.1) 0%, transparent 40%),
-          radial-gradient(ellipse 100% 100% at 50% 100%, rgba(212, 175, 55, 0.05) 0%, transparent 50%),
-          linear-gradient(180deg, #08080a 0%, #0a0a0c 50%, #08080a 100%)
+          radial-gradient(ellipse 80% 60% at 50% 50%, rgba(212, 175, 55, 0.12) 0%, transparent 50%),
+          radial-gradient(ellipse 50% 50% at 50% 50%, rgba(212, 175, 55, 0.08) 0%, transparent 40%),
+          linear-gradient(180deg, #06060a 0%, #08080a 50%, #06060a 100%)
         `,
         position: 'relative',
         overflow: 'hidden'
       }}>
         <Head><title>S I P - {table?.table_number}</title></Head>
         
-        {/* Ambient glow animation */}
-        <div style={{
+        {/* Animated glow ring behind table number */}
+        <div className="glow-ring" style={{
           position: 'absolute',
-          top: '30%',
+          top: '50%',
           left: '50%',
-          transform: 'translateX(-50%)',
-          width: '300px',
-          height: '300px',
-          background: 'radial-gradient(circle, rgba(212, 175, 55, 0.08) 0%, transparent 70%)',
-          filter: 'blur(40px)',
-          animation: 'pulse 4s ease-in-out infinite',
+          transform: 'translate(-50%, -50%)',
+          width: '280px',
+          height: '280px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%)',
+          filter: 'blur(30px)',
           pointerEvents: 'none'
         }} />
         
+        {/* Rotating ring */}
+        <div className="rotating-ring" style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '200px',
+          height: '200px',
+          borderRadius: '50%',
+          border: '1px solid transparent',
+          borderTopColor: 'rgba(212, 175, 55, 0.3)',
+          borderRightColor: 'rgba(212, 175, 55, 0.1)',
+          pointerEvents: 'none'
+        }} />
+        
+        {/* Second rotating ring - opposite direction */}
+        <div className="rotating-ring-reverse" style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '240px',
+          height: '240px',
+          borderRadius: '50%',
+          border: '1px solid transparent',
+          borderBottomColor: 'rgba(212, 175, 55, 0.2)',
+          borderLeftColor: 'rgba(212, 175, 55, 0.05)',
+          pointerEvents: 'none'
+        }} />
+        
+        {/* Floating particles */}
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className={`particle particle-${i}`} style={{
+            position: 'absolute',
+            width: 4,
+            height: 4,
+            borderRadius: '50%',
+            backgroundColor: 'rgba(212, 175, 55, 0.4)',
+            pointerEvents: 'none'
+          }} />
+        ))}
+        
         {/* Subtle top line accent */}
-        <div style={{
+        <div className="line-animate" style={{
           position: 'absolute',
           top: 0,
           left: '50%',
           transform: 'translateX(-50%)',
-          width: '200px',
+          width: '150px',
           height: '1px',
-          background: 'linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.5) 50%, transparent 100%)'
+          background: 'linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.6) 50%, transparent 100%)'
         }} />
         
         <div style={{ ...s.centered, position: 'relative', zIndex: 1 }}>
           {/* Event name with glow */}
-          <div style={{ 
-            fontSize: 28, 
+          <div className="fade-in-down" style={{ 
+            fontSize: 24, 
             fontWeight: 300, 
-            letterSpacing: 6, 
+            letterSpacing: 8, 
             color: colors.champagne, 
-            marginBottom: 40, 
+            marginBottom: 48, 
             textTransform: 'uppercase',
-            textShadow: '0 0 30px rgba(212, 175, 55, 0.3), 0 0 60px rgba(212, 175, 55, 0.1)'
+            textShadow: '0 0 40px rgba(212, 175, 55, 0.4), 0 0 80px rgba(212, 175, 55, 0.2)'
           }}>{event?.name || 'S I P'}</div>
           
-          {/* Decorative line */}
-          <div style={{ 
-            width: 60, 
-            height: 1, 
-            background: 'linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.6), transparent)', 
-            marginBottom: 40 
-          }} />
-          
           {/* Table number - big and bold */}
-          <div style={{ 
-            fontSize: 64, 
+          <div className="scale-in" style={{ 
+            fontSize: 72, 
             fontWeight: 200, 
-            letterSpacing: 8, 
+            letterSpacing: 12, 
             color: colors.ivory, 
             marginBottom: 16,
-            textShadow: '0 0 40px rgba(255, 255, 255, 0.1)'
+            textShadow: '0 0 60px rgba(255, 255, 255, 0.15), 0 0 100px rgba(212, 175, 55, 0.1)',
+            paddingLeft: 12
           }}>{table?.table_number}</div>
           
-          <div style={{ 
-            fontSize: 12, 
-            letterSpacing: 4, 
+          {/* Decorative dots */}
+          <div className="fade-in" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'rgba(212, 175, 55, 0.3)' }} />
+            <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'rgba(212, 175, 55, 0.6)' }} />
+            <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'rgba(212, 175, 55, 0.3)' }} />
+          </div>
+          
+          <div className="fade-in-up" style={{ 
+            fontSize: 11, 
+            letterSpacing: 6, 
             color: colors.textMuted, 
             marginBottom: 56,
             textTransform: 'uppercase'
           }}>Your table awaits</div>
           
-          {/* Premium button */}
+          {/* Premium button with shimmer */}
           <button 
+            className="btn-shimmer fade-in-up-delay"
             onClick={() => setScreen('menu')} 
             style={{ 
-              padding: '18px 56px', 
-              background: 'transparent',
-              border: '1px solid rgba(212, 175, 55, 0.6)',
+              padding: '20px 64px', 
+              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, transparent 50%, rgba(212, 175, 55, 0.1) 100%)',
+              border: '1px solid rgba(212, 175, 55, 0.4)',
               color: colors.champagne,
-              fontSize: 12,
-              letterSpacing: 3,
+              fontSize: 13,
+              letterSpacing: 4,
               textTransform: 'uppercase',
               cursor: 'pointer',
               position: 'relative',
               overflow: 'hidden',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 0 20px rgba(212, 175, 55, 0.1), inset 0 0 20px rgba(212, 175, 55, 0.05)'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = 'rgba(212, 175, 55, 0.1)'
-              e.target.style.boxShadow = '0 0 30px rgba(212, 175, 55, 0.2), inset 0 0 20px rgba(212, 175, 55, 0.1)'
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'transparent'
-              e.target.style.boxShadow = '0 0 20px rgba(212, 175, 55, 0.1), inset 0 0 20px rgba(212, 175, 55, 0.05)'
+              transition: 'all 0.4s ease',
+              boxShadow: '0 0 30px rgba(212, 175, 55, 0.1)'
             }}
           >
             View Menu
           </button>
         </div>
         
-        {/* Bottom decorative line */}
+        {/* Bottom decorative element */}
         <div style={{
           position: 'absolute',
-          bottom: 40,
+          bottom: 48,
           left: '50%',
           transform: 'translateX(-50%)',
-          width: '100px',
-          height: '1px',
-          background: 'linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.3) 50%, transparent 100%)'
-        }} />
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16
+        }}>
+          <div style={{ width: 40, height: 1, background: 'linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.4))' }} />
+          <div style={{ fontSize: 10, letterSpacing: 4, color: 'rgba(212, 175, 55, 0.4)' }}>S I P</div>
+          <div style={{ width: 40, height: 1, background: 'linear-gradient(90deg, rgba(212, 175, 55, 0.4), transparent)' }} />
+        </div>
         
-        {/* CSS Animation */}
+        {/* CSS Animations */}
         <style jsx>{`
-          @keyframes pulse {
-            0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
-            50% { opacity: 0.8; transform: translateX(-50%) scale(1.1); }
+          @keyframes rotate {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+          }
+          @keyframes rotateReverse {
+            from { transform: translate(-50%, -50%) rotate(360deg); }
+            to { transform: translate(-50%, -50%) rotate(0deg); }
+          }
+          @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
+          }
+          @keyframes pulse-glow {
+            0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+          }
+          @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+          }
+          @keyframes shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          .glow-ring {
+            animation: pulse-glow 3s ease-in-out infinite;
+          }
+          .rotating-ring {
+            animation: rotate 20s linear infinite;
+          }
+          .rotating-ring-reverse {
+            animation: rotateReverse 25s linear infinite;
+          }
+          .particle-0 { top: 60%; left: 30%; animation: float 4s ease-in-out infinite; animation-delay: 0s; }
+          .particle-1 { top: 40%; left: 70%; animation: float 5s ease-in-out infinite; animation-delay: 1s; }
+          .particle-2 { top: 55%; left: 25%; animation: float 4.5s ease-in-out infinite; animation-delay: 2s; }
+          .particle-3 { top: 45%; left: 75%; animation: float 5.5s ease-in-out infinite; animation-delay: 0.5s; }
+          .particle-4 { top: 65%; left: 65%; animation: float 4s ease-in-out infinite; animation-delay: 1.5s; }
+          .particle-5 { top: 35%; left: 35%; animation: float 5s ease-in-out infinite; animation-delay: 2.5s; }
+          .fade-in-down { animation: fadeInDown 0.8s ease-out forwards; }
+          .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; animation-delay: 0.3s; opacity: 0; }
+          .fade-in-up-delay { animation: fadeInUp 0.8s ease-out forwards; animation-delay: 0.6s; opacity: 0; }
+          .scale-in { animation: scaleIn 0.8s ease-out forwards; animation-delay: 0.1s; }
+          .fade-in { animation: fadeIn 1s ease-out forwards; animation-delay: 0.4s; opacity: 0; }
+          .btn-shimmer {
+            background-size: 200% 100%;
+            animation: shimmer 3s ease-in-out infinite;
+          }
+          .btn-shimmer:hover {
+            background: rgba(212, 175, 55, 0.15);
+            box-shadow: 0 0 50px rgba(212, 175, 55, 0.3);
+            transform: scale(1.02);
+          }
+          .line-animate {
+            animation: fadeIn 1.5s ease-out forwards;
           }
         `}</style>
       </div>
