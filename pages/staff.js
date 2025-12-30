@@ -63,7 +63,7 @@ export default function StaffDashboard() {
           setTimeout(() => setNewOrderAlert(false), 3000) 
         }
         // Reload orders
-        supabase.from('orders').select('*, event_tables(*), order_items(*)').eq('event_id', eventId).in('event_table_id', myTableIdsRef.current.length ? myTableIdsRef.current : ['00000000-0000-0000-0000-000000000000']).in('status', ['new', 'preparing', 'ready']).order('created_at', { ascending: true }).then(({ data }) => { if (data) setOrders(data) })
+        loadOrders()
       })
       .subscribe((status) => {
         console.log('Realtime status:', status)
@@ -86,15 +86,25 @@ export default function StaffDashboard() {
     setLoading(false)
   }
 
-  // Load orders WITH order_items from separate table
+  // Load orders WITH order_items - includes my tables AND broadcast orders (unassigned tables)
   const loadOrders = async () => {
-    const { data, error } = await supabase
+    // Build filter: my tables OR broadcast_to_all
+    const myTables = myTableIdsRef.current.length ? myTableIdsRef.current : []
+    let query = supabase
       .from('orders')
       .select('*, event_tables(*), order_items(*)')
       .eq('event_id', selectedEvent.id)
-      .in('event_table_id', myTableIdsRef.current.length ? myTableIdsRef.current : ['00000000-0000-0000-0000-000000000000'])
       .in('status', ['new', 'preparing', 'ready'])
-      .order('created_at', { ascending: true })
+    
+    if (myTables.length > 0) {
+      // Get orders for my tables OR broadcast orders
+      query = query.or(`event_table_id.in.(${myTables.join(',')}),broadcast_to_all.eq.true`)
+    } else {
+      // Only broadcast orders if no tables assigned
+      query = query.eq('broadcast_to_all', true)
+    }
+    
+    const { data } = await query.order('created_at', { ascending: true })
     if (data) setOrders(data)
   }
 
@@ -121,9 +131,32 @@ export default function StaffDashboard() {
   const handleLogout = () => { setWaiter(null); localStorage.removeItem('sip_waiter'); setOrders([]); setSelectedEvent(null) }
 
   const handleOrderStatus = async (orderId, newStatus) => {
-    console.log('Updating order', orderId, 'to', newStatus)
-    const { data, error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId).select()
-    console.log('Update result:', data, error)
+    // Get order first to check if it's a broadcast order
+    const { data: orderData } = await supabase.from('orders').select('*').eq('id', orderId).single()
+    
+    const updates = { status: newStatus }
+    
+    // If accepting (preparing) a broadcast order, assign it to this waiter
+    if (newStatus === 'preparing' && orderData?.broadcast_to_all) {
+      updates.waiter_id = waiter.id
+      updates.broadcast_to_all = false
+      
+      // Also assign the table to this waiter for future orders
+      if (orderData.event_table_id && selectedEvent) {
+        await supabase.from('table_assignments').upsert({
+          event_table_id: orderData.event_table_id,
+          waiter_id: waiter.id,
+          event_id: selectedEvent.id
+        }, { onConflict: 'event_table_id,event_id' })
+        
+        // Update my tables ref
+        if (!myTableIdsRef.current.includes(orderData.event_table_id)) {
+          myTableIdsRef.current = [...myTableIdsRef.current, orderData.event_table_id]
+        }
+      }
+    }
+    
+    const { error } = await supabase.from('orders').update(updates).eq('id', orderId)
     if (!error) loadOrders()
   }
 
@@ -484,7 +517,10 @@ export default function StaffDashboard() {
       <div key={o.id} style={{ ...s.card, borderLeft: `3px solid ${borderColor}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>{o.event_tables?.table_number || o.table_number || 'Masă'}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+              {o.event_tables?.table_number || o.table_number || 'Masă'}
+              {o.broadcast_to_all && <span style={{ fontSize: 9, padding: '2px 6px', backgroundColor: colors.error, color: '#fff', borderRadius: 4, animation: 'pulse 1s infinite' }}>🆕 MASĂ NOUĂ</span>}
+            </div>
             <div style={{ fontSize: 10, color: colors.textMuted }}>{new Date(o.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</div>
           </div>
           <div style={{ fontSize: 18, fontWeight: 600, color: colors.champagne }}>{o.total} LEI</div>
