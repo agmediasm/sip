@@ -101,6 +101,79 @@ export default function OrderPage() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0)
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0)
 
+  // Smart Upsell System
+  const DEFAULT_PAIRINGS = {
+    bottle: ['soft', 'energy-drinks', 'juice'],
+    vodka: ['soft', 'energy-drinks'],
+    rum: ['soft'],
+    whiskey: ['soft'],
+    gin: ['soft'],
+    wine: ['food'],
+    cocktail: ['food', 'snacks'],
+    beer: ['food', 'snacks'],
+    shot: ['shot']
+  }
+  
+  const UPSELL_MESSAGES = {
+    bottle: '🔥 92% adaugă mixere la sticle',
+    vodka: '💡 Perfect cu Red Bull sau Cola',
+    rum: '🥤 Majoritatea combină cu Cola',
+    whiskey: '🥃 Recomandăm cu Cola sau neat',
+    cocktail: '🍽️ Merge perfect cu snacks',
+    beer: '🍕 Clienții mai comandă și mâncare',
+    shot: '🎉 Ia 6, atmosfera e mai bună!',
+    default: '💡 Alți clienți mai comandă:'
+  }
+  
+  const getUpsellSuggestions = () => {
+    if (cart.length === 0) return { suggestions: [], message: '' }
+    
+    const cartProductTypes = cart.map(c => c.product_type || 'other')
+    const cartCategorySlugs = cart.map(c => c.categories?.slug || '')
+    const cartItemIds = cart.map(c => c.id)
+    
+    let targetCategories = new Set()
+    let message = UPSELL_MESSAGES.default
+    
+    // Find what to suggest based on cart contents
+    for (const pType of cartProductTypes) {
+      const pairings = DEFAULT_PAIRINGS[pType]
+      if (pairings) {
+        pairings.forEach(cat => targetCategories.add(cat))
+        if (UPSELL_MESSAGES[pType]) message = UPSELL_MESSAGES[pType]
+      }
+    }
+    
+    // If bottle service, prioritize mixers
+    if (cartProductTypes.includes('bottle')) {
+      message = UPSELL_MESSAGES.bottle
+    }
+    
+    // Get suggestions from target categories
+    let suggestions = menuItems.filter(item => {
+      // Don't suggest items already in cart
+      if (cartItemIds.includes(item.id)) return false
+      // Don't suggest unavailable items
+      if (item.is_available === false) return false
+      // Match target categories
+      const itemCatSlug = item.categories?.slug || ''
+      return Array.from(targetCategories).some(target => 
+        itemCatSlug.toLowerCase().includes(target.toLowerCase())
+      )
+    })
+    
+    // Sort: popular items first, then by price (low to high)
+    suggestions.sort((a, b) => {
+      if (a.badge === 'popular' && b.badge !== 'popular') return -1
+      if (b.badge === 'popular' && a.badge !== 'popular') return 1
+      return (a.default_price || 0) - (b.default_price || 0)
+    })
+    
+    return { suggestions: suggestions.slice(0, 4), message }
+  }
+  
+  const { suggestions: upsellSuggestions, message: upsellMessage } = getUpsellSuggestions()
+
   const placeOrder = async (pType) => {
     try {
       const orderData = {
@@ -247,6 +320,25 @@ export default function OrderPage() {
                   </div>
                 </div>
               ))}
+              
+              {/* Smart Upsell Section */}
+              {upsellSuggestions.length > 0 && (
+                <div style={{marginTop:'20px', padding:'16px', backgroundColor:'rgba(212,175,55,0.08)', borderRadius:'12px', border:`1px solid rgba(212,175,55,0.2)`}}>
+                  <div style={{fontSize:'12px', letterSpacing:'2px', color:colors.champagne, marginBottom:'12px', fontWeight:'500'}}>COMPLETEAZĂ COMANDA</div>
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px'}}>
+                    {upsellSuggestions.map(item => (
+                      <div key={item.id} onClick={() => addToCart(item)} style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', backgroundColor:'rgba(0,0,0,0.3)', borderRadius:'8px', cursor:'pointer', border:`1px solid ${colors.border}`}}>
+                        <div style={{flex:1, minWidth:0}}>
+                          <div style={{fontSize:'12px', fontWeight:'400', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{item.name}</div>
+                          <div style={{fontSize:'11px', color:colors.champagne}}>{getPrice(item)} LEI</div>
+                        </div>
+                        <div style={{width:'24px', height:'24px', borderRadius:'50%', backgroundColor:colors.champagne, color:colors.noir, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'14px', fontWeight:'600', marginLeft:'8px', flexShrink:0}}>+</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{marginTop:'10px', fontSize:'11px', color:colors.textMuted, textAlign:'center'}}>{upsellMessage}</div>
+                </div>
+              )}
             </div>
             <div style={{padding:'16px', borderTop:`1px solid ${colors.border}`}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
