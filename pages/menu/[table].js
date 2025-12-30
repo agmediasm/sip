@@ -253,7 +253,7 @@ export default function MenuPage() {
       <div style={styles.container}>
         <Head><title>S I P - {tableInfo?.table_number}</title></Head>
         <div style={styles.welcome}>
-          <div style={styles.welcomeVenue}>{tableInfo?.venues?.name || 'NUBA'} · București</div>
+          <div style={styles.welcomeVenue}>{tableInfo?.venues?.name || 'IntooIt'} </div>
           <div style={styles.welcomeTable}>{tableInfo?.table_number || 'VIP 1'}</div>
           <div style={styles.welcomeLabel}>Your table awaits</div>
           <button onClick={() => setScreen('menu')} style={styles.welcomeBtn}>
