@@ -132,31 +132,62 @@ export default function StaffDashboard() {
     if (!error) loadOrders()
   }
 
-  // Split Payment Functions
+  // Split Payment Functions - now with quantity selection
   const openSplitPayment = (order) => {
     setSplitPaymentOrder(order)
-    setSelectedItemsForPayment([])
+    // Initialize with 0 quantity selected for each item
+    const initial = {}
+    order.order_items?.forEach((_, idx) => { initial[idx] = 0 })
+    setSelectedItemsForPayment(initial)
   }
 
   const closeSplitPayment = () => {
     setSplitPaymentOrder(null)
-    setSelectedItemsForPayment([])
+    setSelectedItemsForPayment({})
   }
 
-  const toggleItemForPayment = (itemIndex) => {
-    setSelectedItemsForPayment(prev => 
-      prev.includes(itemIndex) 
-        ? prev.filter(i => i !== itemIndex)
-        : [...prev, itemIndex]
-    )
+  const adjustItemQty = (idx, delta) => {
+    const item = splitPaymentOrder?.order_items?.[idx]
+    if (!item) return
+    const maxQty = item.quantity || 1
+    setSelectedItemsForPayment(prev => {
+      const current = prev[idx] || 0
+      const newQty = Math.max(0, Math.min(maxQty, current + delta))
+      return { ...prev, [idx]: newQty }
+    })
+  }
+
+  const selectAllOfItem = (idx) => {
+    const item = splitPaymentOrder?.order_items?.[idx]
+    if (!item) return
+    setSelectedItemsForPayment(prev => {
+      const current = prev[idx] || 0
+      // Toggle: if all selected, deselect all; otherwise select all
+      return { ...prev, [idx]: current === item.quantity ? 0 : item.quantity }
+    })
   }
 
   const getSelectedTotal = () => {
     if (!splitPaymentOrder) return 0
-    return selectedItemsForPayment.reduce((sum, idx) => {
-      const item = splitPaymentOrder.order_items?.[idx]
-      return sum + (item?.subtotal || item?.price * item?.quantity || 0)
+    return Object.entries(selectedItemsForPayment).reduce((sum, [idx, qty]) => {
+      const item = splitPaymentOrder.order_items?.[parseInt(idx)]
+      if (!item || qty === 0) return sum
+      const unitPrice = (item.subtotal || item.price * item.quantity) / item.quantity
+      return sum + (unitPrice * qty)
     }, 0)
+  }
+
+  const hasSelectedItems = () => {
+    return Object.values(selectedItemsForPayment).some(qty => qty > 0)
+  }
+
+  const getSelectedItemsDescription = () => {
+    return Object.entries(selectedItemsForPayment)
+      .filter(([_, qty]) => qty > 0)
+      .map(([idx, qty]) => {
+        const item = splitPaymentOrder?.order_items?.[parseInt(idx)]
+        return `${qty}× ${item?.name}`
+      }).join(', ')
   }
 
   // Inactive Table Alerts
@@ -213,10 +244,10 @@ export default function StaffDashboard() {
   }, [selectedEvent, waiter, eventTables])
 
   const handlePartialPayment = async (paymentType) => {
-    if (!splitPaymentOrder || selectedItemsForPayment.length === 0) return
+    if (!splitPaymentOrder || !hasSelectedItems()) return
     
-    const selectedTotal = getSelectedTotal()
-    const remainingTotal = splitPaymentOrder.total - selectedTotal
+    const selectedTotal = Math.round(getSelectedTotal())
+    const remainingTotal = Math.round(splitPaymentOrder.total - selectedTotal)
     
     if (remainingTotal <= 0) {
       // Full payment
@@ -226,8 +257,7 @@ export default function StaffDashboard() {
       const { error } = await supabase.from('orders').update({
         total: remainingTotal,
         payment_status: 'partial',
-        // Mark paid items in notes
-        notes: `Plătit parțial: ${selectedTotal} LEI (${paymentType}). Items: ${selectedItemsForPayment.map(idx => splitPaymentOrder.order_items?.[idx]?.name).join(', ')}`
+        notes: `Plătit parțial: ${selectedTotal} LEI (${paymentType}). ${getSelectedItemsDescription()}`
       }).eq('id', splitPaymentOrder.id)
       
       if (!error) loadOrders()
@@ -492,11 +522,9 @@ export default function StaffDashboard() {
               <button onClick={() => handleMarkPaid(o.id, 'cash')} style={{ ...s.btn, backgroundColor: colors.success, color: '#fff' }}>💵 Cash</button>
               <button onClick={() => handleMarkPaid(o.id, 'card')} style={{ ...s.btn, backgroundColor: colors.normal, color: '#fff' }}>💳 Card</button>
             </div>
-            <div style={{ textAlign: 'center', marginTop: 10 }}>
-              <button onClick={() => openSplitPayment(o)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
-                Plată parțială ↓
-              </button>
-            </div>
+            <button onClick={() => openSplitPayment(o)} style={{ ...s.btn, width: '100%', marginTop: 12, backgroundColor: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: 12 }}>
+              ✂️ Plată parțială
+            </button>
           </div>
         )}
         
@@ -872,17 +900,28 @@ export default function StaffDashboard() {
             <div style={s.modalBody}>
               <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16 }}>Selectează ce plătește clientul acum:</div>
               
-              {splitPaymentOrder.order_items?.map((item, idx) => (
-                <div key={idx} onClick={() => toggleItemForPayment(idx)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, marginBottom: 8, backgroundColor: selectedItemsForPayment.includes(idx) ? `${colors.champagne}20` : colors.noir, border: `2px solid ${selectedItemsForPayment.includes(idx) ? colors.champagne : colors.border}`, borderRadius: 8, cursor: 'pointer' }}>
-                  <div style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${selectedItemsForPayment.includes(idx) ? colors.champagne : colors.border}`, backgroundColor: selectedItemsForPayment.includes(idx) ? colors.champagne : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {selectedItemsForPayment.includes(idx) && <span style={{ color: colors.noir, fontSize: 14 }}>✓</span>}
+              {splitPaymentOrder.order_items?.map((item, idx) => {
+                const selectedQty = selectedItemsForPayment[idx] || 0
+                const unitPrice = (item.subtotal || item.price * item.quantity) / item.quantity
+                const isSelected = selectedQty > 0
+                return (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, marginBottom: 8, backgroundColor: isSelected ? `${colors.champagne}20` : colors.noir, border: `2px solid ${isSelected ? colors.champagne : colors.border}`, borderRadius: 8 }}>
+                    <div style={{ flex: 1 }} onClick={() => selectAllOfItem(idx)}>
+                      <div style={{ fontWeight: 500, cursor: 'pointer' }}>{item.name}</div>
+                      <div style={{ fontSize: 11, color: colors.textMuted }}>{Math.round(unitPrice)} LEI/buc</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button onClick={() => adjustItemQty(idx, -1)} style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: colors.ivory, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <div style={{ width: 50, textAlign: 'center' }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: isSelected ? colors.champagne : colors.ivory }}>{selectedQty}</div>
+                        <div style={{ fontSize: 9, color: colors.textMuted }}>din {item.quantity}</div>
+                      </div>
+                      <button onClick={() => adjustItemQty(idx, 1)} style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${colors.champagne}`, backgroundColor: colors.champagne, color: colors.noir, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    </div>
+                    <div style={{ width: 70, textAlign: 'right', color: isSelected ? colors.champagne : colors.textMuted, fontWeight: 600 }}>{Math.round(unitPrice * selectedQty)} LEI</div>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500 }}>{item.quantity}× {item.name}</div>
-                  </div>
-                  <div style={{ color: colors.champagne, fontWeight: 600 }}>{item.subtotal || item.price * item.quantity} LEI</div>
-                </div>
-              ))}
+                )
+              })}
               
               <div style={{ marginTop: 20, padding: 16, backgroundColor: colors.noir, borderRadius: 8, border: `1px solid ${colors.border}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -895,7 +934,7 @@ export default function StaffDashboard() {
                 </div>
               </div>
               
-              {selectedItemsForPayment.length > 0 && (
+              {hasSelectedItems() && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
                   <button onClick={() => handlePartialPayment('cash')} style={{ ...s.btn, backgroundColor: colors.success, color: '#fff', padding: 14 }}>💵 Cash {getSelectedTotal()} LEI</button>
                   <button onClick={() => handlePartialPayment('card')} style={{ ...s.btn, backgroundColor: colors.normal, color: '#fff', padding: 14 }}>💳 Card {getSelectedTotal()} LEI</button>
