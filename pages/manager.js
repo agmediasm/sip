@@ -36,8 +36,7 @@ export default function ManagerDashboard() {
   const [tableAssignments, setTableAssignments] = useState([])
   const [customers, setCustomers] = useState([])
   const [customerFilter, setCustomerFilter] = useState({ period: 'all', eventId: null })
-  const [analytics, setAnalytics] = useState({})
-  const [eventAnalytics, setEventAnalytics] = useState({})
+  const [analytics, setAnalytics] = useState({ totalSales: 0, totalOrders: 0, cashOrders: 0, cardOrders: 0, cashAmount: 0, cardAmount: 0, avgOrder: 0, topProducts: [], topCategories: [] })
   const [leaderboard, setLeaderboard] = useState([])
   const [loading, setLoading] = useState(true)
   const [analyticsPeriod, setAnalyticsPeriod] = useState('month')
@@ -99,29 +98,71 @@ export default function ManagerDashboard() {
   const loadWaiters = async () => { const { data } = await getWaiters(VENUE_ID, waiterFilter); if (data) setWaiters(data) }
   const loadCustomers = async () => { const { data } = await getCustomersFiltered({ ...customerFilter, limit: 50 }); if (data) setCustomers(data) }
   const loadEventData = async (eventId) => {
-    const [tRes, ewRes, aRes, emRes, resRes, eaRes] = await Promise.all([getEventTables(eventId), getEventWaiters(eventId), getTableAssignments(eventId), getEventMenu(eventId), getEventReservations(eventId), getEventAnalytics(eventId)])
+    const [tRes, ewRes, aRes, emRes, resRes] = await Promise.all([getEventTables(eventId), getEventWaiters(eventId), getTableAssignments(eventId), getEventMenu(eventId), getEventReservations(eventId)])
     if (tRes.data) { setEventTables(tRes.data); const fT = tRes.data.filter(t => t.zone !== 'back'), bT = tRes.data.filter(t => t.zone === 'back'); if (fT.length) { setFrontGridRows(Math.max(6, Math.max(...fT.map(t => t.grid_row)) + 2)); setFrontGridCols(Math.max(8, Math.max(...fT.map(t => t.grid_col)) + 2)) }; if (bT.length) { setBackGridRows(Math.max(6, Math.max(...bT.map(t => t.grid_row)) + 2)); setBackGridCols(Math.max(8, Math.max(...bT.map(t => t.grid_col)) + 2)) } }
-    if (ewRes.data) setEventWaiters(ewRes.data); if (aRes.data) setTableAssignments(aRes.data); if (emRes.data) setEventMenu(emRes.data); if (resRes.data) setReservations(resRes.data); if (eaRes) setEventAnalytics(eaRes)
+    if (ewRes.data) setEventWaiters(ewRes.data); if (aRes.data) setTableAssignments(aRes.data); if (emRes.data) setEventMenu(emRes.data); if (resRes.data) setReservations(resRes.data)
     await loadLeaderboard(eventId)
   }
   const loadAnalytics = async () => {
-    let query = supabase.from('orders').select('total, created_at, event_id, customer_phone, payment_status').eq('venue_id', VENUE_ID)
+    let query = supabase.from('orders').select('*, order_items(*)').eq('venue_id', VENUE_ID)
     const now = new Date()
     if (analyticsPeriod === 'week') query = query.gte('created_at', new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString())
     else if (analyticsPeriod === 'month') query = query.gte('created_at', new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString())
     else if (analyticsPeriod === 'year') query = query.gte('created_at', new Date(now - 365 * 24 * 60 * 60 * 1000).toISOString())
     if (statsEventFilter !== 'all') query = query.eq('event_id', statsEventFilter)
     const { data: orders } = await query
+    
     const paidOrders = orders?.filter(o => o.payment_status === 'paid') || []
-    const totalSales = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+    const totalSales = paidOrders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0)
     const totalOrders = orders?.length || 0
     const uniqueCustomers = new Set(orders?.filter(o => o.customer_phone).map(o => o.customer_phone)).size
-    setAnalytics({ totalSales, totalOrders, totalCustomers: uniqueCustomers })
+    
+    // Payment breakdown
+    const cashOrders = paidOrders.filter(o => o.payment_type === 'cash')
+    const cardOrders = paidOrders.filter(o => o.payment_type === 'card')
+    const cashAmount = cashOrders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0)
+    const cardAmount = cardOrders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0)
+    const avgOrder = paidOrders.length > 0 ? Math.round(totalSales / paidOrders.length) : 0
+    
+    // Top products
+    const productMap = {}
+    paidOrders.forEach(o => {
+      o.order_items?.forEach(item => {
+        if (!productMap[item.name]) productMap[item.name] = { name: item.name, qty: 0, revenue: 0 }
+        productMap[item.name].qty += item.quantity || 1
+        productMap[item.name].revenue += parseFloat(item.subtotal || 0)
+      })
+    })
+    const topProducts = Object.values(productMap).sort((a, b) => b.revenue - a.revenue).slice(0, 10)
+    
+    setAnalytics({ totalSales, totalOrders, totalCustomers: uniqueCustomers, cashCount: cashOrders.length, cardCount: cardOrders.length, cashAmount, cardAmount, avgOrder, topProducts, paidCount: paidOrders.length, pendingCount: totalOrders - paidOrders.length })
   }
   const loadLeaderboard = async (eventId) => {
-    const data = await getWaiterLeaderboard(eventId)
-    if (!data || data.length === 0) { setLeaderboard([]); return }
-    setLeaderboard(data.map(w => ({ id: w.id, name: w.name, totalSales: w.event_sales || 0, orderCount: w.event_orders || 0 })))
+    // Get all waiters assigned to event
+    const { data: eventWaitersData } = await supabase.from('event_waiters').select('*, waiters(*)').eq('event_id', eventId)
+    if (!eventWaitersData) { setLeaderboard([]); return }
+    
+    // Get all paid orders for this event
+    const { data: orders } = await supabase.from('orders').select('waiter_id, total').eq('event_id', eventId).eq('payment_status', 'paid')
+    
+    // Calculate sales per waiter
+    const waiterSales = {}
+    orders?.forEach(o => {
+      if (!o.waiter_id) return
+      if (!waiterSales[o.waiter_id]) waiterSales[o.waiter_id] = { sales: 0, orders: 0 }
+      waiterSales[o.waiter_id].sales += parseFloat(o.total || 0)
+      waiterSales[o.waiter_id].orders += 1
+    })
+    
+    // Build leaderboard with ALL assigned waiters
+    const board = eventWaitersData.map(ew => ({
+      id: ew.waiters?.id,
+      name: ew.waiters?.name || 'Unknown',
+      totalSales: waiterSales[ew.waiter_id]?.sales || 0,
+      orderCount: waiterSales[ew.waiter_id]?.orders || 0
+    })).sort((a, b) => b.totalSales - a.totalSales)
+    
+    setLeaderboard(board)
   }
   const loadCRMCustomers = async () => {
     const { data: allRes } = await supabase.from('reservations').select('*, event_tables(*), events(*)').eq('venue_id', VENUE_ID).order('created_at', { ascending: false })
@@ -264,7 +305,89 @@ export default function ManagerDashboard() {
       <header style={s.header}><div style={s.logo}>S I P</div><Link href="/staff" style={{ fontSize: 12, color: colors.textMuted, textDecoration: 'none' }}>Staff →</Link></header>
       <div style={s.tabs}>{TABS.map(tab => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{...s.tab, color: activeTab === tab.id ? colors.champagne : colors.textMuted, borderColor: activeTab === tab.id ? colors.champagne : 'transparent' }}>{tab.icon} {tab.label}</button>))}</div>
       <div style={s.content}>
-        {activeTab === 'overview' && (<><div style={{ marginBottom: 24 }}><div style={s.filterRow}>{['week', 'month', 'year', 'all'].map(p => (<button key={p} onClick={() => setAnalyticsPeriod(p)} style={{...s.filterBtn, backgroundColor: analyticsPeriod === p ? colors.champagne : 'transparent', color: analyticsPeriod === p ? colors.noir : colors.textMuted}}>{p === 'week' ? '7 zile' : p === 'month' ? '30 zile' : p === 'year' ? '1 an' : 'Total'}</button>))}<select value={statsEventFilter} onChange={e => setStatsEventFilter(e.target.value)} style={{...s.filterBtn, padding: '8px 12px', backgroundColor: statsEventFilter !== 'all' ? colors.champagne : 'transparent', color: statsEventFilter !== 'all' ? colors.noir : colors.textMuted, border: `1px solid ${colors.border}`, cursor: 'pointer'}}><option value="all">Toate evenimentele</option>{allEvents.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}</select></div><div style={s.statsGrid}><div style={s.stat}><div style={s.statVal}>{(analytics.totalSales || 0).toLocaleString()}</div><div style={s.statLbl}>LEI TOTAL</div></div><div style={s.stat}><div style={s.statVal}>{analytics.totalOrders || 0}</div><div style={s.statLbl}>COMENZI</div></div><div style={s.stat}><div style={s.statVal}>{analytics.totalOrders > 0 ? Math.round((analytics.totalSales || 0) / analytics.totalOrders) : 0}</div><div style={s.statLbl}>MEDIE/COMANDĂ</div></div><div style={s.stat}><div style={s.statVal}>{analytics.totalCustomers || 0}</div><div style={s.statLbl}>CLIENȚI</div></div></div></div>{selectedEvent && (<div><div style={s.title}>{selectedEvent.name}</div><div style={s.statsGrid}><div style={s.stat}><div style={s.statVal}>{(eventAnalytics.totalSales || 0).toLocaleString()}</div><div style={s.statLbl}>LEI</div></div><div style={s.stat}><div style={s.statVal}>{eventAnalytics.totalOrders || 0}</div><div style={s.statLbl}>COMENZI</div></div><div style={s.stat}><div style={s.statVal}>{eventTables.length}</div><div style={s.statLbl}>MESE</div></div><div style={s.stat}><div style={s.statVal}>{reservations.length}</div><div style={s.statLbl}>REZERVĂRI</div></div></div><div style={{ marginTop: 24 }}><div style={s.title}>TOP STAFF</div>{leaderboard.length === 0 ? (<div style={{ textAlign: 'center', padding: 32, color: colors.textMuted }}>Nicio vânzare încă</div>) : leaderboard.map((w, idx) => (<div key={w.id} style={{...s.card, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer'}} onClick={() => loadWaiterStats(w)}><div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: idx === 0 ? colors.champagne : idx === 1 ? colors.platinum : idx === 2 ? '#cd7f32' : colors.border, color: idx < 3 ? colors.noir : colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>{idx + 1}</div><div style={{ flex: 1 }}><div style={{ fontWeight: 500 }}>{w.name}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{w.orderCount} comenzi</div></div><div style={{ textAlign: 'right' }}><div style={{ fontSize: 16, fontWeight: 600, color: colors.champagne }}>{(w.totalSales || 0).toLocaleString()}</div><div style={{ fontSize: 10, color: colors.textMuted }}>LEI</div></div></div>))}</div></div>)}</>)}
+        {activeTab === 'overview' && (<>
+          {/* Filters */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={s.filterRow}>
+              {['week', 'month', 'year', 'all'].map(p => (<button key={p} onClick={() => setAnalyticsPeriod(p)} style={{...s.filterBtn, backgroundColor: analyticsPeriod === p ? colors.champagne : 'transparent', color: analyticsPeriod === p ? colors.noir : colors.textMuted}}>{p === 'week' ? '7 zile' : p === 'month' ? '30 zile' : p === 'year' ? '1 an' : 'Total'}</button>))}
+              <select value={statsEventFilter} onChange={e => setStatsEventFilter(e.target.value)} style={{...s.filterBtn, padding: '8px 12px', backgroundColor: statsEventFilter !== 'all' ? colors.champagne : 'transparent', color: statsEventFilter !== 'all' ? colors.noir : colors.textMuted, border: `1px solid ${colors.border}`, cursor: 'pointer'}}><option value="all">Toate evenimentele</option>{allEvents.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}</select>
+            </div>
+          </div>
+          
+          {/* Main Stats */}
+          <div style={s.statsGrid}>
+            <div style={s.stat}><div style={s.statVal}>{(analytics.totalSales || 0).toLocaleString()}</div><div style={s.statLbl}>LEI ÎNCASAȚI</div></div>
+            <div style={s.stat}><div style={s.statVal}>{analytics.totalOrders || 0}</div><div style={s.statLbl}>COMENZI TOTAL</div></div>
+            <div style={s.stat}><div style={s.statVal}>{analytics.avgOrder || 0}</div><div style={s.statLbl}>MEDIE/COMANDĂ</div></div>
+            <div style={s.stat}><div style={s.statVal}>{analytics.totalCustomers || 0}</div><div style={s.statLbl}>CLIENȚI UNICI</div></div>
+          </div>
+          
+          {/* Payment Breakdown */}
+          <div style={{ marginTop: 24 }}>
+            <div style={s.title}>💳 METODE DE PLATĂ</div>
+            <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr', gap: 12 }}>
+              <div style={{...s.card, display: 'flex', alignItems: 'center', gap: 16}}>
+                <div style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: 'rgba(34,197,94,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💵</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: colors.textMuted }}>CASH</div>
+                  <div style={{ fontSize: 20, fontWeight: 600, color: colors.success }}>{(analytics.cashAmount || 0).toLocaleString()} LEI</div>
+                  <div style={{ fontSize: 11, color: colors.textMuted }}>{analytics.cashCount || 0} comenzi</div>
+                </div>
+                <div style={{ fontSize: 14, color: colors.textMuted }}>{analytics.paidCount > 0 ? Math.round((analytics.cashCount || 0) / analytics.paidCount * 100) : 0}%</div>
+              </div>
+              <div style={{...s.card, display: 'flex', alignItems: 'center', gap: 16}}>
+                <div style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: 'rgba(59,130,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>💳</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: colors.textMuted }}>CARD</div>
+                  <div style={{ fontSize: 20, fontWeight: 600, color: colors.normal }}>{(analytics.cardAmount || 0).toLocaleString()} LEI</div>
+                  <div style={{ fontSize: 11, color: colors.textMuted }}>{analytics.cardCount || 0} comenzi</div>
+                </div>
+                <div style={{ fontSize: 14, color: colors.textMuted }}>{analytics.paidCount > 0 ? Math.round((analytics.cardCount || 0) / analytics.paidCount * 100) : 0}%</div>
+              </div>
+            </div>
+            {analytics.pendingCount > 0 && <div style={{ marginTop: 12, padding: 12, backgroundColor: `${colors.warning}15`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 20 }}>⏳</span><div><div style={{ fontSize: 12, color: colors.warning, fontWeight: 600 }}>{analytics.pendingCount} comenzi neplătite</div></div></div>}
+          </div>
+          
+          {/* Top Products */}
+          {analytics.topProducts?.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <div style={s.title}>🏆 TOP PRODUSE</div>
+              {analytics.topProducts.slice(0, 5).map((p, idx) => (
+                <div key={idx} style={{...s.card, display: 'flex', alignItems: 'center', gap: 12}}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: idx === 0 ? colors.champagne : idx === 1 ? colors.platinum : idx === 2 ? '#cd7f32' : colors.border, color: idx < 3 ? colors.noir : colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12 }}>{idx + 1}</div>
+                  <div style={{ flex: 1 }}><div style={{ fontWeight: 500 }}>{p.name}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{p.qty} vândute</div></div>
+                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: 14, fontWeight: 600, color: colors.champagne }}>{(p.revenue || 0).toLocaleString()}</div><div style={{ fontSize: 10, color: colors.textMuted }}>LEI</div></div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Staff Leaderboard */}
+          {selectedEvent && (
+            <div style={{ marginTop: 24 }}>
+              <div style={s.title}>👨‍🍳 TOP STAFF - {selectedEvent.name}</div>
+              {leaderboard.length === 0 ? (<div style={{ textAlign: 'center', padding: 32, color: colors.textMuted }}>Niciun ospătar asignat</div>) : leaderboard.map((w, idx) => (
+                <div key={w.id} style={{...s.card, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer'}} onClick={() => loadWaiterStats(w)}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: idx === 0 ? colors.champagne : idx === 1 ? colors.platinum : idx === 2 ? '#cd7f32' : colors.border, color: idx < 3 ? colors.noir : colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>{idx + 1}</div>
+                  <div style={{ flex: 1 }}><div style={{ fontWeight: 500 }}>{w.name}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{w.orderCount} comenzi plătite</div></div>
+                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: 16, fontWeight: 600, color: colors.champagne }}>{(w.totalSales || 0).toLocaleString()}</div><div style={{ fontSize: 10, color: colors.textMuted }}>LEI</div></div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Event Quick Stats */}
+          {selectedEvent && (
+            <div style={{ marginTop: 24 }}>
+              <div style={s.title}>📊 {selectedEvent.name}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <div style={s.stat}><div style={s.statVal}>{eventTables.length}</div><div style={s.statLbl}>MESE</div></div>
+                <div style={s.stat}><div style={s.statVal}>{reservations.length}</div><div style={s.statLbl}>REZERVĂRI</div></div>
+                <div style={s.stat}><div style={s.statVal}>{eventWaiters.length}</div><div style={s.statLbl}>OSPĂTARI</div></div>
+              </div>
+            </div>
+          )}
+        </>)}
         {activeTab === 'events' && (<><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}><div style={s.title}>Evenimente</div><button onClick={() => setShowEventModal(true)} style={{...s.btn, backgroundColor: colors.champagne, color: colors.noir}}>+ Event</button></div>{events.map(ev => (<div key={ev.id} onClick={() => setSelectedEvent(ev)} style={{...s.card, border: `1px solid ${selectedEvent?.id === ev.id ? colors.champagne : colors.border}`, cursor: 'pointer'}}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div><div style={{ fontWeight: 500 }}>{ev.name}</div><div style={{ fontSize: 12, color: colors.textMuted }}>{ev.event_date} • {ev.start_time}</div></div><div style={{ display: 'flex', gap: 8 }}><button onClick={(e) => { e.stopPropagation(); openEditEvent(ev) }} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.champagne, border: `1px solid ${colors.champagne}`}}>✏️</button><button onClick={(e) => handleDeleteEvent(e, ev.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button></div></div></div>))}</>)}
         {activeTab === 'layout' && selectedEvent && (<><div style={s.title}>Layout: {selectedEvent.name}</div>{renderGrid(false)}{layoutTemplates.length > 0 && (<div style={{ marginTop: 24 }}><div style={s.title}>Template-uri salvate</div>{layoutTemplates.map(t => (<div key={t.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><div><div style={{ fontWeight: 500 }}>{t.name}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{t.table_config?.length || 0} mese</div></div><div style={{ display: 'flex', gap: 8 }}><button onClick={async () => { await applyLayoutTemplate(t.id, selectedEvent.id); loadEventData(selectedEvent.id) }} style={{...s.btnSm, backgroundColor: colors.champagne, color: colors.noir}}>Aplică</button><button onClick={() => handleDeleteTemplate(t.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button></div></div>))}</div>)}</>)}
         {activeTab === 'reservations' && selectedEvent && (<><div style={s.title}>Rezervări: {selectedEvent.name}</div><div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16 }}>Click pe o masă pentru a adăuga/șterge rezervare</div>{renderGrid(true)}{reservations.length > 0 && (<div style={{ marginTop: 24 }}><div style={s.title}>Lista rezervări ({reservations.length})</div>{reservations.map(r => { const t = eventTables.find(t => t.id === r.event_table_id); return (<div key={r.id} style={{...s.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}><div><div style={{ fontWeight: 500 }}>{r.customer_name} {r.is_vip && <span style={{...s.badge, backgroundColor: colors.champagne, color: colors.noir}}>VIP</span>}</div><div style={{ fontSize: 12, color: colors.textMuted }}>{t?.table_number} • {r.party_size} pers • {r.reservation_time}</div></div><button onClick={() => handleDeleteRes(r.id)} style={{...s.btnSm, backgroundColor: 'transparent', color: colors.error, border: `1px solid ${colors.error}`}}>✕</button></div>) })}</div>)}</>)}
