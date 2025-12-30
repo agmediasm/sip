@@ -105,14 +105,15 @@ export default function ManagerDashboard() {
     await loadLeaderboard(eventId)
   }
   const loadAnalytics = async () => {
-    let query = supabase.from('orders').select('total, created_at, event_id, customer_phone').eq('venue_id', VENUE_ID).eq('payment_status', 'paid')
+    let query = supabase.from('orders').select('total, created_at, event_id, customer_phone, payment_status').eq('venue_id', VENUE_ID)
     const now = new Date()
     if (analyticsPeriod === 'week') query = query.gte('created_at', new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString())
     else if (analyticsPeriod === 'month') query = query.gte('created_at', new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString())
     else if (analyticsPeriod === 'year') query = query.gte('created_at', new Date(now - 365 * 24 * 60 * 60 * 1000).toISOString())
     if (statsEventFilter !== 'all') query = query.eq('event_id', statsEventFilter)
     const { data: orders } = await query
-    const totalSales = orders?.reduce((sum, o) => sum + (o.total || 0), 0) || 0
+    const paidOrders = orders?.filter(o => o.payment_status === 'paid') || []
+    const totalSales = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0)
     const totalOrders = orders?.length || 0
     const uniqueCustomers = new Set(orders?.filter(o => o.customer_phone).map(o => o.customer_phone)).size
     setAnalytics({ totalSales, totalOrders, totalCustomers: uniqueCustomers })

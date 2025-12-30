@@ -344,11 +344,12 @@ export default function StaffDashboard() {
         </div>
         
         {/* Actions */}
+        <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8, padding: '6px 10px', backgroundColor: o.payment_type === 'cash' ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)', borderRadius: 4, display: 'inline-block' }}>
+          {o.payment_type === 'cash' ? '💵 Cash' : '💳 Card'}
+        </div>
+        
         {type === 'new' && (
-          <div>
-            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Plată: {o.payment_type === 'cash' ? '💵 Cash' : '💳 Card'}</div>
-            <button onClick={() => handleOrderStatus(o.id, 'preparing')} style={{ ...s.btn, width: '100%', backgroundColor: colors.success, color: 'white' }}>✓ Accept</button>
-          </div>
+          <button onClick={() => handleOrderStatus(o.id, 'preparing')} style={{ ...s.btn, width: '100%', backgroundColor: colors.success, color: 'white', marginTop: 8 }}>✓ Accept</button>
         )}
         
         {type === 'preparing' && (
