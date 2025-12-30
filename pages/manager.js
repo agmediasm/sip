@@ -118,11 +118,9 @@ export default function ManagerDashboard() {
     setAnalytics({ totalSales, totalOrders, totalCustomers: uniqueCustomers })
   }
   const loadLeaderboard = async (eventId) => {
-    const { data: orders } = await supabase.from('orders').select('waiter_id, total, waiters(id, name)').eq('event_id', eventId).eq('payment_status', 'paid')
-    if (!orders || orders.length === 0) { setLeaderboard([]); return }
-    const waiterMap = new Map()
-    for (const o of orders) { if (!o.waiter_id) continue; if (!waiterMap.has(o.waiter_id)) { waiterMap.set(o.waiter_id, { id: o.waiter_id, name: o.waiters?.name || 'Necunoscut', totalSales: 0, orderCount: 0 }) }; const w = waiterMap.get(o.waiter_id); w.totalSales += o.total || 0; w.orderCount++ }
-    setLeaderboard(Array.from(waiterMap.values()).sort((a, b) => b.totalSales - a.totalSales))
+    const data = await getWaiterLeaderboard(eventId)
+    if (!data || data.length === 0) { setLeaderboard([]); return }
+    setLeaderboard(data.map(w => ({ id: w.id, name: w.name, totalSales: w.event_sales || 0, orderCount: w.event_orders || 0 })))
   }
   const loadCRMCustomers = async () => {
     const { data: allRes } = await supabase.from('reservations').select('*, event_tables(*), events(*)').eq('venue_id', VENUE_ID).order('created_at', { ascending: false })
