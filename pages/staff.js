@@ -36,6 +36,7 @@ export default function StaffDashboard() {
   const [selectedItemsForPayment, setSelectedItemsForPayment] = useState([])
   const [inactiveAlerts, setInactiveAlerts] = useState([])
   const [showAlertsPanel, setShowAlertsPanel] = useState(false)
+  const [alertsDismissed, setAlertsDismissed] = useState(false)
   const myTableIdsRef = useRef([])
   const audioRef = useRef(null)
 
@@ -143,7 +144,7 @@ export default function StaffDashboard() {
   }
 
   // Inactive Table Alerts
-  const INACTIVE_MINUTES = 30
+  const INACTIVE_MINUTES = 45
   
   const checkInactiveTables = async () => {
     if (!selectedEvent || !waiter || myTableIdsRef.current.length === 0) return
@@ -522,7 +523,7 @@ export default function StaffDashboard() {
       {newOrderAlert && <div style={s.alertBanner}>🔔 COMANDĂ NOUĂ!</div>}
       
       {/* Inactive Tables Alert Banner */}
-      {inactiveAlerts.length > 0 && !showAlertsPanel && (
+      {inactiveAlerts.length > 0 && !showAlertsPanel && !alertsDismissed && (
         <div onClick={() => setShowAlertsPanel(true)} style={{ position: 'fixed', top: newOrderAlert ? 48 : 0, left: 0, right: 0, backgroundColor: colors.warning, color: colors.noir, padding: 10, textAlign: 'center', fontWeight: 600, zIndex: 45, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <span>⚠️</span>
           <span>{inactiveAlerts.length} {inactiveAlerts.length === 1 ? 'masă necesită' : 'mese necesită'} atenție</span>
@@ -831,7 +832,7 @@ export default function StaffDashboard() {
                       </button>
                     </div>
                   ))}
-                  <button onClick={() => { setInactiveAlerts([]); setShowAlertsPanel(false) }} style={{ width: '100%', marginTop: 8, ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted }}>
+                  <button onClick={() => { setAlertsDismissed(true); setShowAlertsPanel(false) }} style={{ width: '100%', marginTop: 8, ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted }}>
                     ✓ Am verificat toate
                   </button>
                 </>
