@@ -508,107 +508,91 @@ export default function SmartMenuPage() {
         }} />
         
         <div style={{ ...s.centered, position: 'relative', zIndex: 1 }}>
-          {/* Event name with glow */}
+          {/* Event name - elegant, refined */}
           <div className="fade-in-down" style={{ 
-            fontSize: 22, 
-            fontWeight: 300, 
-            letterSpacing: 8, 
-            color: colors.champagne, 
-            marginBottom: 56, 
-            textTransform: 'uppercase',
-            textShadow: '0 0 40px rgba(212, 175, 55, 0.4), 0 0 80px rgba(212, 175, 55, 0.2)'
+            fontSize: 14, 
+            fontWeight: 400, 
+            letterSpacing: 6, 
+            color: 'rgba(212, 175, 55, 0.8)', 
+            marginBottom: 48, 
+            textTransform: 'uppercase'
           }}>{event?.name || 'S I P'}</div>
           
+          {/* Thin decorative line */}
+          <div className="line-expand" style={{ 
+            width: 40, 
+            height: 1, 
+            background: 'rgba(212, 175, 55, 0.3)', 
+            marginBottom: 48 
+          }} />
+          
           {/* Table number container with rings */}
-          <div style={{ position: 'relative', marginBottom: 24 }}>
-            {/* Glow behind */}
+          <div style={{ position: 'relative', marginBottom: 32 }}>
+            {/* Subtle glow behind */}
             <div className="glow-ring" style={{
               position: 'absolute',
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: '200px',
-              height: '200px',
+              width: '180px',
+              height: '180px',
               borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, transparent 70%)',
-              filter: 'blur(20px)',
+              background: 'radial-gradient(circle, rgba(212, 175, 55, 0.08) 0%, transparent 70%)',
+              filter: 'blur(25px)',
               pointerEvents: 'none'
             }} />
             
-            {/* Rotating ring 1 */}
+            {/* Single elegant rotating ring */}
             <div className="rotating-ring" style={{
               position: 'absolute',
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: '160px',
-              height: '160px',
+              width: '140px',
+              height: '140px',
               borderRadius: '50%',
               border: '1px solid transparent',
-              borderTopColor: 'rgba(212, 175, 55, 0.4)',
-              borderRightColor: 'rgba(212, 175, 55, 0.1)',
+              borderTopColor: 'rgba(212, 175, 55, 0.25)',
               pointerEvents: 'none'
             }} />
             
-            {/* Rotating ring 2 - opposite */}
-            <div className="rotating-ring-reverse" style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '190px',
-              height: '190px',
-              borderRadius: '50%',
-              border: '1px solid transparent',
-              borderBottomColor: 'rgba(212, 175, 55, 0.25)',
-              borderLeftColor: 'rgba(212, 175, 55, 0.05)',
-              pointerEvents: 'none'
-            }} />
-            
-            {/* Table number */}
+            {/* Table number - refined size */}
             <div className="scale-in" style={{ 
-              fontSize: 72, 
-              fontWeight: 200, 
-              letterSpacing: 10, 
-              color: colors.ivory, 
-              textShadow: '0 0 60px rgba(255, 255, 255, 0.15), 0 0 100px rgba(212, 175, 55, 0.1)',
-              paddingLeft: 10,
+              fontSize: 48, 
+              fontWeight: 300, 
+              letterSpacing: 6, 
+              color: colors.ivory,
               position: 'relative',
               zIndex: 2,
-              padding: '40px 50px'
+              padding: '45px 55px'
             }}>{table?.table_number}</div>
           </div>
           
-          {/* Decorative dots */}
-          <div className="fade-in" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'rgba(212, 175, 55, 0.3)' }} />
-            <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'rgba(212, 175, 55, 0.6)' }} />
-            <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'rgba(212, 175, 55, 0.3)' }} />
-          </div>
-          
+          {/* Elegant subtitle */}
           <div className="fade-in-up" style={{ 
-            fontSize: 11, 
-            letterSpacing: 6, 
-            color: colors.textMuted, 
-            marginBottom: 48,
+            fontSize: 10, 
+            fontWeight: 300,
+            letterSpacing: 8, 
+            color: 'rgba(255, 255, 255, 0.4)', 
+            marginBottom: 56,
             textTransform: 'uppercase'
           }}>Your table awaits</div>
           
-          {/* Premium button */}
+          {/* Minimal elegant button */}
           <button 
             className="btn-glow"
             onClick={() => setScreen('menu')} 
             style={{ 
-              padding: '18px 56px', 
+              padding: '16px 48px', 
               background: 'transparent',
-              border: '1px solid rgba(212, 175, 55, 0.5)',
-              color: colors.champagne,
-              fontSize: 12,
-              letterSpacing: 4,
+              border: '1px solid rgba(212, 175, 55, 0.35)',
+              color: 'rgba(212, 175, 55, 0.9)',
+              fontSize: 11,
+              fontWeight: 400,
+              letterSpacing: 5,
               textTransform: 'uppercase',
               cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              opacity: 1
+              transition: 'all 0.4s ease'
             }}
           >
             View Menu
@@ -630,71 +614,67 @@ export default function SmartMenuPage() {
           <div style={{ width: 40, height: 1, background: 'linear-gradient(90deg, rgba(212, 175, 55, 0.4), transparent)' }} />
         </div>
         
-        {/* CSS Animations */}
+        {/* CSS Animations - subtle and elegant */}
         <style jsx>{`
           @keyframes rotate {
             from { transform: translate(-50%, -50%) rotate(0deg); }
             to { transform: translate(-50%, -50%) rotate(360deg); }
           }
-          @keyframes rotateReverse {
-            from { transform: translate(-50%, -50%) rotate(360deg); }
-            to { transform: translate(-50%, -50%) rotate(0deg); }
-          }
           @keyframes float {
-            0%, 100% { transform: translateY(0); opacity: 0.2; }
-            50% { transform: translateY(-30px); opacity: 0.6; }
+            0%, 100% { transform: translateY(0); opacity: 0.15; }
+            50% { transform: translateY(-20px); opacity: 0.4; }
           }
           @keyframes pulse-glow {
-            0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.08); }
           }
           @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-30px); }
+            from { opacity: 0; transform: translateY(-15px); }
             to { opacity: 1; transform: translateY(0); }
           }
           @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
           }
           @keyframes scaleIn {
-            from { opacity: 0; transform: scale(0.7); }
+            from { opacity: 0; transform: scale(0.9); }
             to { opacity: 1; transform: scale(1); }
           }
           @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
           }
+          @keyframes lineExpand {
+            from { width: 0; opacity: 0; }
+            to { width: 40px; opacity: 1; }
+          }
           .glow-ring {
-            animation: pulse-glow 3s ease-in-out infinite;
+            animation: pulse-glow 4s ease-in-out infinite;
           }
           .rotating-ring {
-            animation: rotate 15s linear infinite;
+            animation: rotate 25s linear infinite;
           }
-          .rotating-ring-reverse {
-            animation: rotateReverse 20s linear infinite;
-          }
-          .particle-0 { top: 20%; left: 15%; animation: float 6s ease-in-out infinite; }
-          .particle-1 { top: 30%; left: 85%; animation: float 7s ease-in-out infinite; animation-delay: 1s; }
-          .particle-2 { top: 70%; left: 10%; animation: float 5s ease-in-out infinite; animation-delay: 2s; }
-          .particle-3 { top: 80%; left: 90%; animation: float 8s ease-in-out infinite; animation-delay: 0.5s; }
-          .particle-4 { top: 15%; left: 60%; animation: float 6.5s ease-in-out infinite; animation-delay: 3s; }
-          .particle-5 { top: 85%; left: 40%; animation: float 5.5s ease-in-out infinite; animation-delay: 1.5s; }
-          .particle-6 { top: 50%; left: 5%; animation: float 7s ease-in-out infinite; animation-delay: 2.5s; }
-          .particle-7 { top: 45%; left: 95%; animation: float 6s ease-in-out infinite; animation-delay: 4s; }
-          .fade-in-down { animation: fadeInDown 1s ease-out forwards; }
-          .fade-in-up { animation: fadeInUp 1s ease-out forwards; }
-          .scale-in { animation: scaleIn 1s ease-out forwards; }
-          .fade-in { animation: fadeIn 1s ease-out forwards; animation-delay: 0.5s; opacity: 0; }
-          .fade-in-slow { animation: fadeIn 1.5s ease-out forwards; animation-delay: 1s; opacity: 0; }
+          .particle-0 { top: 20%; left: 12%; animation: float 8s ease-in-out infinite; }
+          .particle-1 { top: 25%; left: 88%; animation: float 9s ease-in-out infinite; animation-delay: 2s; }
+          .particle-2 { top: 75%; left: 8%; animation: float 7s ease-in-out infinite; animation-delay: 4s; }
+          .particle-3 { top: 80%; left: 92%; animation: float 10s ease-in-out infinite; animation-delay: 1s; }
+          .particle-4 { top: 12%; left: 55%; animation: float 8s ease-in-out infinite; animation-delay: 5s; }
+          .particle-5 { top: 88%; left: 45%; animation: float 7s ease-in-out infinite; animation-delay: 3s; }
+          .particle-6 { top: 50%; left: 4%; animation: float 9s ease-in-out infinite; animation-delay: 6s; }
+          .particle-7 { top: 50%; left: 96%; animation: float 8s ease-in-out infinite; animation-delay: 7s; }
+          .fade-in-down { animation: fadeInDown 1.2s ease-out forwards; }
+          .fade-in-up { animation: fadeInUp 1.2s ease-out forwards; animation-delay: 0.6s; opacity: 0; }
+          .scale-in { animation: scaleIn 1s ease-out forwards; animation-delay: 0.3s; opacity: 0; }
+          .fade-in-slow { animation: fadeIn 2s ease-out forwards; animation-delay: 1.2s; opacity: 0; }
+          .line-expand { animation: lineExpand 1s ease-out forwards; animation-delay: 0.5s; }
           .btn-glow {
-            animation: fadeInUp 0.8s ease-out forwards;
-            animation-delay: 0.8s;
+            animation: fadeIn 1s ease-out forwards;
+            animation-delay: 1s;
             opacity: 0;
           }
           .btn-glow:hover {
-            background: rgba(212, 175, 55, 0.1);
-            box-shadow: 0 0 40px rgba(212, 175, 55, 0.3);
-            transform: scale(1.05);
+            background: rgba(212, 175, 55, 0.08);
+            border-color: rgba(212, 175, 55, 0.6);
           }
           .line-animate {
             animation: fadeIn 2s ease-out forwards;
