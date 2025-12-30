@@ -87,8 +87,8 @@ export default function ManagerDashboard() {
     const [evRes, allEvRes, menuRes, catsRes, layRes, menuTRes, defTRes] = await Promise.all([getEvents(VENUE_ID), getAllEvents(VENUE_ID), getAllMenuItems(VENUE_ID), supabase.from('categories').select('*').eq('venue_id', VENUE_ID).eq('is_active', true).order('sort_order'), getLayoutTemplates(VENUE_ID), getMenuTemplates(VENUE_ID), getDefaultMenuTemplate(VENUE_ID)])
     if (evRes.data?.length) { setEvents(evRes.data); setSelectedEvent(evRes.data[0]) }
     if (allEvRes.data) setAllEvents(allEvRes.data)
-    if (menuRes.data) { const unique = [], seen = new Set(); for (const item of menuRes.data) { const key = `${item.name}-${item.category_id}`; if (!seen.has(key)) { seen.add(key); unique.push(item) } }; setMenuItems(unique) }
-    if (catsRes.data) { const uniqueCats = [], seenCats = new Set(); for (const cat of catsRes.data) { if (!seenCats.has(cat.name)) { seenCats.add(cat.name); uniqueCats.push(cat) } }; setCategories(uniqueCats) }
+    if (menuRes.data) setMenuItems(menuRes.data)
+    if (catsRes.data) setCategories(catsRes.data)
     if (layRes.data) setLayoutTemplates(layRes.data)
     if (menuTRes?.data) setMenuTemplates(menuTRes.data)
     if (defTRes?.data) setDefaultTemplateId(defTRes.data.id)
@@ -192,7 +192,7 @@ export default function ManagerDashboard() {
   const handleTableClick = async (e, t) => { e.stopPropagation(); if (confirm(`Ștergi ${t.table_number}?`)) { await deleteEventTable(t.id); loadEventData(selectedEvent.id) } }
   const addRow = () => activeZone === 'front' ? setFrontGridRows(p => p + 1) : setBackGridRows(p => p + 1)
   const addCol = () => activeZone === 'front' ? setFrontGridCols(p => p + 1) : setBackGridCols(p => p + 1)
-  const loadMenuOnly = async () => { const [menuRes, catsRes] = await Promise.all([getAllMenuItems(VENUE_ID), supabase.from('categories').select('*').eq('venue_id', VENUE_ID).eq('is_active', true).order('sort_order')]); if (menuRes.data) { const unique = [], seen = new Set(); for (const item of menuRes.data) { const key = `${item.name}-${item.category_id}`; if (!seen.has(key)) { seen.add(key); unique.push(item) } }; setMenuItems(unique) }; if (catsRes.data) { const uniqueCats = [], seenCats = new Set(); for (const cat of catsRes.data) { if (!seenCats.has(cat.name)) { seenCats.add(cat.name); uniqueCats.push(cat) } }; setCategories(uniqueCats) } }
+  const loadMenuOnly = async () => { const [menuRes, catsRes] = await Promise.all([getAllMenuItems(VENUE_ID), supabase.from('categories').select('*').eq('venue_id', VENUE_ID).eq('is_active', true).order('sort_order')]); if (menuRes.data) setMenuItems(menuRes.data); if (catsRes.data) setCategories(catsRes.data) }
   const handleCreateProduct = async () => { if (!productForm.name || !productForm.default_price || !productForm.category_id) return; await createMenuItem({ ...productForm, venue_id: VENUE_ID, default_price: parseFloat(productForm.default_price) }); closeProductModal(); loadMenuOnly() }
   const handleUpdateProduct = async () => { if (!editingProduct) return; await updateMenuItem(editingProduct.id, { ...productForm, default_price: parseFloat(productForm.default_price) }); closeProductModal(); loadMenuOnly() }
   const closeProductModal = () => { setShowProductModal(false); setEditingProduct(null); setProductForm({ name: '', description: '', default_price: '', category_id: '', product_type: 'cocktail', badge: '', is_available: true }) }
