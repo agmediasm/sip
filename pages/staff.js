@@ -36,7 +36,7 @@ export default function StaffDashboard() {
   const [selectedItemsForPayment, setSelectedItemsForPayment] = useState([])
   const [inactiveAlerts, setInactiveAlerts] = useState([])
   const [showAlertsPanel, setShowAlertsPanel] = useState(false)
-  const [alertsDismissed, setAlertsDismissed] = useState(false)
+  const [dismissedTableIds, setDismissedTableIds] = useState(new Set())
   const myTableIdsRef = useRef([])
   const audioRef = useRef(null)
 
@@ -46,21 +46,16 @@ export default function StaffDashboard() {
   
   useEffect(() => {
     if (!selectedEvent || !waiter) return
-    let debounceTimer = null
-    const debouncedLoad = () => {
-      if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => loadOrders(), 300)
-    }
     const channel = supabase.channel('staff-orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `event_id=eq.${selectedEvent.id}` }, (payload) => {
         if (payload.eventType === 'INSERT' && myTableIdsRef.current.includes(payload.new.event_table_id)) { setNewOrderAlert(true); playSound(); setTimeout(() => setNewOrderAlert(false), 3000) }
-        debouncedLoad()
+        loadOrders()
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
-        debouncedLoad()
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_items' }, () => {
+        loadOrders()
       })
       .subscribe()
-    return () => { if (debounceTimer) clearTimeout(debounceTimer); supabase.removeChannel(channel) }
+    return () => { supabase.removeChannel(channel) }
   }, [selectedEvent, waiter])
 
   const playSound = () => { try { if (!audioRef.current) audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleA0GVaHj6tCHNx0lXbXv8sRqKg'); audioRef.current.play().catch(() => {}) } catch(e) {} }
@@ -531,10 +526,10 @@ export default function StaffDashboard() {
       {newOrderAlert && <div style={s.alertBanner}>🔔 COMANDĂ NOUĂ!</div>}
       
       {/* Inactive Tables Alert Banner */}
-      {inactiveAlerts.length > 0 && !showAlertsPanel && !alertsDismissed && (
+      {inactiveAlerts.filter(a => !dismissedTableIds.has(a.table.id)).length > 0 && !showAlertsPanel && (
         <div onClick={() => setShowAlertsPanel(true)} style={{ position: 'fixed', top: newOrderAlert ? 48 : 0, left: 0, right: 0, backgroundColor: colors.warning, color: colors.noir, padding: 10, textAlign: 'center', fontWeight: 600, zIndex: 45, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <span>⚠️</span>
-          <span>{inactiveAlerts.length} {inactiveAlerts.length === 1 ? 'masă necesită' : 'mese necesită'} atenție</span>
+          <span>{inactiveAlerts.filter(a => !dismissedTableIds.has(a.table.id)).length} {inactiveAlerts.filter(a => !dismissedTableIds.has(a.table.id)).length === 1 ? 'masă necesită' : 'mese necesită'} atenție</span>
           <span style={{ fontSize: 11, opacity: 0.8 }}>→ Vezi</span>
         </div>
       )}
@@ -840,7 +835,7 @@ export default function StaffDashboard() {
                       </button>
                     </div>
                   ))}
-                  <button onClick={() => { setAlertsDismissed(true); setShowAlertsPanel(false) }} style={{ width: '100%', marginTop: 8, ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted }}>
+                  <button onClick={() => { setDismissedTableIds(new Set([...dismissedTableIds, ...inactiveAlerts.map(a => a.table.id)])); setShowAlertsPanel(false) }} style={{ width: '100%', marginTop: 8, ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted }}>
                     ✓ Am verificat toate
                   </button>
                 </>
