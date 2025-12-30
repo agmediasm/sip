@@ -46,11 +46,21 @@ export default function StaffDashboard() {
   
   useEffect(() => {
     if (!selectedEvent || !waiter) return
-    const channel = supabase.channel('staff-orders').on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `event_id=eq.${selectedEvent.id}` }, (payload) => {
-      if (payload.eventType === 'INSERT' && myTableIdsRef.current.includes(payload.new.event_table_id)) { setNewOrderAlert(true); playSound(); setTimeout(() => setNewOrderAlert(false), 3000) }
-      loadOrders()
-    }).subscribe()
-    return () => { supabase.removeChannel(channel) }
+    let debounceTimer = null
+    const debouncedLoad = () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => loadOrders(), 300)
+    }
+    const channel = supabase.channel('staff-orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `event_id=eq.${selectedEvent.id}` }, (payload) => {
+        if (payload.eventType === 'INSERT' && myTableIdsRef.current.includes(payload.new.event_table_id)) { setNewOrderAlert(true); playSound(); setTimeout(() => setNewOrderAlert(false), 3000) }
+        debouncedLoad()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
+        debouncedLoad()
+      })
+      .subscribe()
+    return () => { if (debounceTimer) clearTimeout(debounceTimer); supabase.removeChannel(channel) }
   }, [selectedEvent, waiter])
 
   const playSound = () => { try { if (!audioRef.current) audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleA0GVaHj6tCHNx0lXbXv8sRqKg'); audioRef.current.play().catch(() => {}) } catch(e) {} }
@@ -77,7 +87,6 @@ export default function StaffDashboard() {
       .in('event_table_id', myTableIdsRef.current.length ? myTableIdsRef.current : ['00000000-0000-0000-0000-000000000000'])
       .in('status', ['new', 'preparing', 'ready'])
       .order('created_at', { ascending: true })
-    console.log('Orders loaded:', data, error)
     if (data) setOrders(data)
   }
 
@@ -89,7 +98,6 @@ export default function StaffDashboard() {
       .eq('event_table_id', tableId)
       .order('created_at', { ascending: false })
       .limit(20)
-    console.log('History loaded:', data)
     if (data) setAllTableOrders(data)
   }
 
