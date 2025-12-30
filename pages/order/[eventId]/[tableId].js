@@ -196,7 +196,7 @@ export default function OrderPage() {
             <div key={item.id} style={s.menuItem}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:'15px', fontWeight:'400', letterSpacing:'1px', marginBottom:'4px'}}>{item.name} {item.is_popular && <span style={{fontSize:'8px', padding:'2px 6px', border:`1px solid ${colors.champagne}`, color:colors.champagne, marginLeft:'8px'}}>POPULAR</span>}</div>
+                  <div style={{fontSize:'15px', fontWeight:'400', letterSpacing:'1px', marginBottom:'4px'}}>{item.name} {item.badge && <span style={{fontSize:'8px', padding:'2px 6px', border:`1px solid ${item.badge === 'popular' ? '#ef4444' : item.badge === 'premium' ? colors.champagne : item.badge === 'new' ? '#22c55e' : '#3b82f6'}`, color: item.badge === 'popular' ? '#ef4444' : item.badge === 'premium' ? colors.champagne : item.badge === 'new' ? '#22c55e' : '#3b82f6', marginLeft:'8px', textTransform:'uppercase'}}>{item.badge}</span>}</div>
                   <div style={{fontSize:'12px', color:colors.textMuted}}>{item.description}</div>
                 </div>
                 <div style={{textAlign:'right'}}>
