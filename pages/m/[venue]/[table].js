@@ -403,10 +403,9 @@ export default function SmartMenuPage() {
       <div style={s.container}>
         <Head><title>S I P - {table?.table_number}</title></Head>
         <div style={s.centered}>
-          <div style={{ fontSize: 11, letterSpacing: 4, color: colors.textMuted, marginBottom: 32 }}>{venue?.name || 'S I P'}</div>
-          <div style={{ fontSize: 48, fontWeight: 300, letterSpacing: 4, color: colors.champagne, marginBottom: 8 }}>{table?.table_number}</div>
-          <div style={{ fontSize: 13, letterSpacing: 2, color: colors.platinum, marginBottom: 8 }}>Your table awaits</div>
-          {event && <div style={{ fontSize: 11, color: colors.textMuted }}>{event.name}</div>}
+          <div style={{ fontSize: 28, fontWeight: 300, letterSpacing: 6, color: colors.champagne, marginBottom: 40, textTransform: 'uppercase' }}>{event?.name || 'S I P'}</div>
+          <div style={{ fontSize: 56, fontWeight: 300, letterSpacing: 4, color: colors.ivory, marginBottom: 12 }}>{table?.table_number}</div>
+          <div style={{ fontSize: 13, letterSpacing: 3, color: colors.textMuted }}>Your table awaits</div>
         </div>
       </div>
     )
