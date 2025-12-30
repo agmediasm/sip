@@ -80,7 +80,7 @@ export default function ManagerDashboard() {
   useEffect(() => { const c = () => setIsDesktop(window.innerWidth >= 900); c(); window.addEventListener('resize', c); return () => window.removeEventListener('resize', c) }, [])
   useEffect(() => { loadData() }, [])
   useEffect(() => { if (selectedEvent) loadEventData(selectedEvent.id) }, [selectedEvent])
-  useEffect(() => { loadAnalytics() }, [analyticsPeriod, statsEventFilter])
+  useEffect(() => { loadAnalytics(); loadLeaderboard() }, [analyticsPeriod, statsEventFilter])
   useEffect(() => { loadWaiters() }, [waiterFilter])
   useEffect(() => { loadCustomers() }, [customerFilter])
 
@@ -114,7 +114,6 @@ export default function ManagerDashboard() {
     const [tRes, ewRes, aRes, emRes, resRes] = await Promise.all([getEventTables(eventId), getEventWaiters(eventId), getTableAssignments(eventId), getEventMenu(eventId), getEventReservations(eventId)])
     if (tRes.data) { setEventTables(tRes.data); const fT = tRes.data.filter(t => t.zone !== 'back'), bT = tRes.data.filter(t => t.zone === 'back'); if (fT.length) { setFrontGridRows(Math.max(6, Math.max(...fT.map(t => t.grid_row)) + 2)); setFrontGridCols(Math.max(8, Math.max(...fT.map(t => t.grid_col)) + 2)) }; if (bT.length) { setBackGridRows(Math.max(6, Math.max(...bT.map(t => t.grid_row)) + 2)); setBackGridCols(Math.max(8, Math.max(...bT.map(t => t.grid_col)) + 2)) } }
     if (ewRes.data) setEventWaiters(ewRes.data); if (aRes.data) setTableAssignments(aRes.data); if (emRes.data) setEventMenu(emRes.data); if (resRes.data) setReservations(resRes.data)
-    await loadLeaderboard(eventId)
   }
   const loadAnalytics = async () => {
     let query = supabase.from('orders').select('*, order_items(*)').eq('venue_id', VENUE_ID)
@@ -150,13 +149,22 @@ export default function ManagerDashboard() {
     
     setAnalytics({ totalSales, totalOrders, totalCustomers: uniqueCustomers, cashCount: cashOrders.length, cardCount: cardOrders.length, cashAmount, cardAmount, avgOrder, topProducts, paidCount: paidOrders.length, pendingCount: totalOrders - paidOrders.length })
   }
-  const loadLeaderboard = async (eventId) => {
-    // Get all waiters assigned to event
-    const { data: eventWaitersData } = await supabase.from('event_waiters').select('*, waiters(*)').eq('event_id', eventId)
-    if (!eventWaitersData) { setLeaderboard([]); return }
+  const loadLeaderboard = async () => {
+    // Get ALL waiters for this venue
+    const { data: allWaiters } = await supabase.from('waiters').select('*').eq('venue_id', VENUE_ID).eq('is_active', true)
+    if (!allWaiters) { setLeaderboard([]); return }
     
-    // Get all paid orders for this event
-    const { data: orders } = await supabase.from('orders').select('waiter_id, total').eq('event_id', eventId).eq('payment_status', 'paid')
+    // Build orders query with same filters as analytics
+    let query = supabase.from('orders').select('waiter_id, total, created_at').eq('venue_id', VENUE_ID).eq('payment_status', 'paid')
+    
+    const now = new Date()
+    if (analyticsPeriod === 'week') query = query.gte('created_at', new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString())
+    else if (analyticsPeriod === 'month') query = query.gte('created_at', new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString())
+    else if (analyticsPeriod === 'year') query = query.gte('created_at', new Date(now - 365 * 24 * 60 * 60 * 1000).toISOString())
+    
+    if (statsEventFilter !== 'all') query = query.eq('event_id', statsEventFilter)
+    
+    const { data: orders } = await query
     
     // Calculate sales per waiter
     const waiterSales = {}
@@ -167,12 +175,12 @@ export default function ManagerDashboard() {
       waiterSales[o.waiter_id].orders += 1
     })
     
-    // Build leaderboard with ALL assigned waiters
-    const board = eventWaitersData.map(ew => ({
-      id: ew.waiters?.id,
-      name: ew.waiters?.name || 'Unknown',
-      totalSales: waiterSales[ew.waiter_id]?.sales || 0,
-      orderCount: waiterSales[ew.waiter_id]?.orders || 0
+    // Build leaderboard with ALL waiters
+    const board = allWaiters.map(w => ({
+      id: w.id,
+      name: w.name || 'Unknown',
+      totalSales: waiterSales[w.id]?.sales || 0,
+      orderCount: waiterSales[w.id]?.orders || 0
     })).sort((a, b) => b.totalSales - a.totalSales)
     
     setLeaderboard(board)
@@ -436,18 +444,16 @@ export default function ManagerDashboard() {
           )}
           
           {/* Staff Leaderboard */}
-          {selectedEvent && (
-            <div style={{ marginTop: 24 }}>
-              <div style={s.title}>👨‍🍳 TOP STAFF - {selectedEvent.name}</div>
-              {leaderboard.length === 0 ? (<div style={{ textAlign: 'center', padding: 32, color: colors.textMuted }}>Niciun ospătar asignat</div>) : leaderboard.map((w, idx) => (
-                <div key={w.id} style={{...s.card, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer'}} onClick={() => loadWaiterStats(w)}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: idx === 0 ? colors.champagne : idx === 1 ? colors.platinum : idx === 2 ? '#cd7f32' : colors.border, color: idx < 3 ? colors.noir : colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>{idx + 1}</div>
-                  <div style={{ flex: 1 }}><div style={{ fontWeight: 500 }}>{w.name}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{w.orderCount} comenzi plătite</div></div>
-                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: 16, fontWeight: 600, color: colors.champagne }}>{(w.totalSales || 0).toLocaleString()}</div><div style={{ fontSize: 10, color: colors.textMuted }}>LEI</div></div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div style={{ marginTop: 24 }}>
+            <div style={s.title}>👨‍🍳 CLASAMENT OSPĂTARI</div>
+            {leaderboard.length === 0 ? (<div style={{ textAlign: 'center', padding: 32, color: colors.textMuted }}>Niciun ospătar</div>) : leaderboard.map((w, idx) => (
+              <div key={w.id} style={{...s.card, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer'}} onClick={() => loadWaiterStats(w)}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: idx === 0 ? colors.champagne : idx === 1 ? colors.platinum : idx === 2 ? '#cd7f32' : colors.border, color: idx < 3 ? colors.noir : colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>{idx + 1}</div>
+                <div style={{ flex: 1 }}><div style={{ fontWeight: 500 }}>{w.name}</div><div style={{ fontSize: 11, color: colors.textMuted }}>{w.orderCount} comenzi plătite</div></div>
+                <div style={{ textAlign: 'right' }}><div style={{ fontSize: 16, fontWeight: 600, color: colors.champagne }}>{(w.totalSales || 0).toLocaleString()}</div><div style={{ fontSize: 10, color: colors.textMuted }}>LEI</div></div>
+              </div>
+            ))}
+          </div>
           
           {/* Event Quick Stats */}
           {selectedEvent && (
