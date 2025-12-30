@@ -32,6 +32,8 @@ export default function StaffDashboard() {
   const [showReservationModal, setShowReservationModal] = useState(false)
   const [selectedReservation, setSelectedReservation] = useState(null)
   const [orderError, setOrderError] = useState('')
+  const [splitPaymentOrder, setSplitPaymentOrder] = useState(null)
+  const [selectedItemsForPayment, setSelectedItemsForPayment] = useState([])
   const myTableIdsRef = useRef([])
   const audioRef = useRef(null)
 
@@ -107,8 +109,59 @@ export default function StaffDashboard() {
   }
 
   const handleMarkPaid = async (orderId, paymentType) => {
-    const { error } = await supabase.from('orders').update({ status: 'delivered', payment_status: 'paid', payment_type: paymentType }).eq('id', orderId)
+    const { error } = await supabase.from('orders').update({ status: 'delivered', payment_status: 'paid', payment_type: paymentType, paid_at: new Date().toISOString() }).eq('id', orderId)
     if (!error) loadOrders()
+  }
+
+  // Split Payment Functions
+  const openSplitPayment = (order) => {
+    setSplitPaymentOrder(order)
+    setSelectedItemsForPayment([])
+  }
+
+  const closeSplitPayment = () => {
+    setSplitPaymentOrder(null)
+    setSelectedItemsForPayment([])
+  }
+
+  const toggleItemForPayment = (itemIndex) => {
+    setSelectedItemsForPayment(prev => 
+      prev.includes(itemIndex) 
+        ? prev.filter(i => i !== itemIndex)
+        : [...prev, itemIndex]
+    )
+  }
+
+  const getSelectedTotal = () => {
+    if (!splitPaymentOrder) return 0
+    return selectedItemsForPayment.reduce((sum, idx) => {
+      const item = splitPaymentOrder.order_items?.[idx]
+      return sum + (item?.subtotal || item?.price * item?.quantity || 0)
+    }, 0)
+  }
+
+  const handlePartialPayment = async (paymentType) => {
+    if (!splitPaymentOrder || selectedItemsForPayment.length === 0) return
+    
+    const selectedTotal = getSelectedTotal()
+    const remainingTotal = splitPaymentOrder.total - selectedTotal
+    
+    if (remainingTotal <= 0) {
+      // Full payment
+      await handleMarkPaid(splitPaymentOrder.id, paymentType)
+    } else {
+      // Partial payment - update order with remaining amount
+      const { error } = await supabase.from('orders').update({
+        total: remainingTotal,
+        payment_status: 'partial',
+        // Mark paid items in notes
+        notes: `Plătit parțial: ${selectedTotal} LEI (${paymentType}). Items: ${selectedItemsForPayment.map(idx => splitPaymentOrder.order_items?.[idx]?.name).join(', ')}`
+      }).eq('id', splitPaymentOrder.id)
+      
+      if (!error) loadOrders()
+    }
+    
+    closeSplitPayment()
   }
 
   const openTableOptions = (table) => { setSelectedTable(table); setShowTableModal(true) }
@@ -358,11 +411,24 @@ export default function StaffDashboard() {
         
         {type === 'ready' && (
           <div>
-            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Încasează:</div>
+            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>Încasează {o.total} LEI:</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <button onClick={() => handleMarkPaid(o.id, 'cash')} style={{ ...s.btn, backgroundColor: colors.success, color: '#fff' }}>💵 Cash</button>
               <button onClick={() => handleMarkPaid(o.id, 'card')} style={{ ...s.btn, backgroundColor: colors.normal, color: '#fff' }}>💳 Card</button>
             </div>
+            <div style={{ textAlign: 'center', marginTop: 10 }}>
+              <button onClick={() => openSplitPayment(o)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
+                Plată parțială ↓
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Partial payment indicator */}
+        {o.payment_status === 'partial' && (
+          <div style={{ marginTop: 8, padding: 8, backgroundColor: `${colors.warning}20`, borderRadius: 6, border: `1px solid ${colors.warning}` }}>
+            <div style={{ fontSize: 11, color: colors.warning, fontWeight: 600 }}>⚠️ Parțial plătit</div>
+            <div style={{ fontSize: 10, color: colors.textMuted, marginTop: 4 }}>{o.notes}</div>
           </div>
         )}
       </div>
@@ -661,6 +727,56 @@ export default function StaffDashboard() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Split Payment Modal */}
+      {splitPaymentOrder && (
+        <div style={s.modal} onClick={closeSplitPayment}>
+          <div style={{...s.modalBox, maxWidth: 400}} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHead}>
+              <div>
+                <span style={{ fontSize: 16, fontWeight: 600 }}>Plată parțială</span>
+                <div style={{ fontSize: 11, color: colors.textMuted }}>{splitPaymentOrder.event_tables?.table_number || splitPaymentOrder.table_number}</div>
+              </div>
+              <button onClick={closeSplitPayment} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={s.modalBody}>
+              <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16 }}>Selectează ce plătește clientul acum:</div>
+              
+              {splitPaymentOrder.order_items?.map((item, idx) => (
+                <div key={idx} onClick={() => toggleItemForPayment(idx)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, marginBottom: 8, backgroundColor: selectedItemsForPayment.includes(idx) ? `${colors.champagne}20` : colors.noir, border: `2px solid ${selectedItemsForPayment.includes(idx) ? colors.champagne : colors.border}`, borderRadius: 8, cursor: 'pointer' }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${selectedItemsForPayment.includes(idx) ? colors.champagne : colors.border}`, backgroundColor: selectedItemsForPayment.includes(idx) ? colors.champagne : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {selectedItemsForPayment.includes(idx) && <span style={{ color: colors.noir, fontSize: 14 }}>✓</span>}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500 }}>{item.quantity}× {item.name}</div>
+                  </div>
+                  <div style={{ color: colors.champagne, fontWeight: 600 }}>{item.subtotal || item.price * item.quantity} LEI</div>
+                </div>
+              ))}
+              
+              <div style={{ marginTop: 20, padding: 16, backgroundColor: colors.noir, borderRadius: 8, border: `1px solid ${colors.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ color: colors.textMuted }}>Încasezi acum:</span>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: colors.champagne }}>{getSelectedTotal()} LEI</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: colors.textMuted }}>Rămâne:</span>
+                  <span style={{ fontSize: 14, color: colors.warning }}>{splitPaymentOrder.total - getSelectedTotal()} LEI</span>
+                </div>
+              </div>
+              
+              {selectedItemsForPayment.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
+                  <button onClick={() => handlePartialPayment('cash')} style={{ ...s.btn, backgroundColor: colors.success, color: '#fff', padding: 14 }}>💵 Cash {getSelectedTotal()} LEI</button>
+                  <button onClick={() => handlePartialPayment('card')} style={{ ...s.btn, backgroundColor: colors.normal, color: '#fff', padding: 14 }}>💳 Card {getSelectedTotal()} LEI</button>
+                </div>
+              )}
+              
+              <button onClick={closeSplitPayment} style={{ width: '100%', marginTop: 12, background: 'none', border: 'none', color: colors.textMuted, fontSize: 12, cursor: 'pointer' }}>Anulează</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
