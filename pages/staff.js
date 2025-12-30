@@ -34,6 +34,8 @@ export default function StaffDashboard() {
   const [orderError, setOrderError] = useState('')
   const [splitPaymentOrder, setSplitPaymentOrder] = useState(null)
   const [selectedItemsForPayment, setSelectedItemsForPayment] = useState([])
+  const [inactiveAlerts, setInactiveAlerts] = useState([])
+  const [showAlertsPanel, setShowAlertsPanel] = useState(false)
   const myTableIdsRef = useRef([])
   const audioRef = useRef(null)
 
@@ -139,6 +141,59 @@ export default function StaffDashboard() {
       return sum + (item?.subtotal || item?.price * item?.quantity || 0)
     }, 0)
   }
+
+  // Inactive Table Alerts
+  const INACTIVE_MINUTES = 30
+  
+  const checkInactiveTables = async () => {
+    if (!selectedEvent || !waiter || myTableIdsRef.current.length === 0) return
+    
+    const cutoffTime = new Date(Date.now() - INACTIVE_MINUTES * 60 * 1000).toISOString()
+    const alerts = []
+    
+    for (const tableId of myTableIdsRef.current) {
+      const table = eventTables.find(t => t.id === tableId)
+      if (!table) continue
+      
+      // Get last order for this table
+      const { data: lastOrders } = await supabase
+        .from('orders')
+        .select('created_at, total')
+        .eq('event_table_id', tableId)
+        .eq('event_id', selectedEvent.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+      
+      const lastOrder = lastOrders?.[0]
+      const isInactive = !lastOrder || lastOrder.created_at < cutoffTime
+      
+      if (isInactive) {
+        const minutesAgo = lastOrder 
+          ? Math.round((Date.now() - new Date(lastOrder.created_at)) / 60000)
+          : null
+        
+        alerts.push({
+          tableId,
+          table,
+          lastOrder,
+          minutesAgo,
+          message: lastOrder 
+            ? `${minutesAgo} min fără comandă (ultima: ${lastOrder.total} LEI)`
+            : 'Nicio comandă încă'
+        })
+      }
+    }
+    
+    setInactiveAlerts(alerts)
+  }
+  
+  // Check inactive tables every 2 minutes
+  useEffect(() => {
+    if (!selectedEvent || !waiter) return
+    checkInactiveTables()
+    const interval = setInterval(checkInactiveTables, 2 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [selectedEvent, waiter, eventTables])
 
   const handlePartialPayment = async (paymentType) => {
     if (!splitPaymentOrder || selectedItemsForPayment.length === 0) return
@@ -302,22 +357,26 @@ export default function StaffDashboard() {
             
             // For "Mesele mele" tab
             if (forMyTables) {
+              const hasAlert = inactiveAlerts.some(a => a.tableId === t.id)
               return (
                 <div key={`${row}-${col}`} onClick={() => mine && openTableOptions(t)} style={{ 
                   width: cellSize, 
                   height: cellSize, 
                   borderRadius: 8, 
-                  border: mine ? `3px solid ${colors.champagne}` : `1px solid ${colors.border}`, 
-                  backgroundColor: mine ? `${colors.champagne}40` : `${cfg}20`, 
+                  border: mine ? `3px solid ${hasAlert ? colors.warning : colors.champagne}` : `1px solid ${colors.border}`, 
+                  backgroundColor: mine ? (hasAlert ? `${colors.warning}40` : `${colors.champagne}40`) : `${cfg}20`, 
                   display: 'flex', 
+                  flexDirection: 'column',
                   alignItems: 'center', 
                   justifyContent: 'center', 
                   cursor: mine ? 'pointer' : 'default', 
                   fontSize: 10, 
                   fontWeight: 700, 
-                  color: mine ? colors.champagne : colors.textMuted, 
-                  opacity: mine ? 1 : 0.5
+                  color: mine ? (hasAlert ? colors.warning : colors.champagne) : colors.textMuted, 
+                  opacity: mine ? 1 : 0.5,
+                  position: 'relative'
                 }}>
+                  {hasAlert && <span style={{ position: 'absolute', top: -4, right: -4, width: 10, height: 10, borderRadius: '50%', backgroundColor: colors.warning, animation: 'pulse 1.5s infinite' }}>⚠️</span>}
                   {t.table_number}
                 </div>
               )
@@ -461,6 +520,15 @@ export default function StaffDashboard() {
     <div style={s.container}>
       <Head><title>S I P - Staff</title></Head>
       {newOrderAlert && <div style={s.alertBanner}>🔔 COMANDĂ NOUĂ!</div>}
+      
+      {/* Inactive Tables Alert Banner */}
+      {inactiveAlerts.length > 0 && !showAlertsPanel && (
+        <div onClick={() => setShowAlertsPanel(true)} style={{ position: 'fixed', top: newOrderAlert ? 48 : 0, left: 0, right: 0, backgroundColor: colors.warning, color: colors.noir, padding: 10, textAlign: 'center', fontWeight: 600, zIndex: 45, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <span>⚠️</span>
+          <span>{inactiveAlerts.length} {inactiveAlerts.length === 1 ? 'masă necesită' : 'mese necesită'} atenție</span>
+          <span style={{ fontSize: 11, opacity: 0.8 }}>→ Vezi</span>
+        </div>
+      )}
       <header style={s.header}>
         <Link href="/" style={{ textDecoration: 'none' }}><span style={s.logo}>S I P</span></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -727,6 +795,49 @@ export default function StaffDashboard() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Inactive Tables Alerts Panel */}
+      {showAlertsPanel && (
+        <div style={s.modal} onClick={() => setShowAlertsPanel(false)}>
+          <div style={{...s.modalBox, maxWidth: 400}} onClick={e => e.stopPropagation()}>
+            <div style={s.modalHead}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>⚠️ Mese inactive</span>
+              <button onClick={() => setShowAlertsPanel(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={s.modalBody}>
+              {inactiveAlerts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 32, color: colors.textMuted }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
+                  <p>Toate mesele sunt OK</p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16 }}>Aceste mese nu au comandat de peste {INACTIVE_MINUTES} minute:</div>
+                  {inactiveAlerts.map(alert => (
+                    <div key={alert.tableId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, marginBottom: 10, backgroundColor: `${colors.warning}15`, border: `1px solid ${colors.warning}40`, borderRadius: 8 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: `${colors.warning}30`, border: `2px solid ${colors.warning}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: colors.warning }}>
+                        {alert.table.table_number}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: colors.ivory }}>{alert.message}</div>
+                        <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                          {alert.table.table_type === 'vip' && <span style={{ color: colors.champagne }}>⭐ VIP</span>}
+                        </div>
+                      </div>
+                      <button onClick={() => { setSelectedTable(alert.table); setShowAlertsPanel(false); setShowTableModal(true) }} style={{ ...s.btnSm, backgroundColor: colors.champagne, color: colors.noir }}>
+                        + Comandă
+                      </button>
+                    </div>
+                  ))}
+                  <button onClick={() => { setInactiveAlerts([]); setShowAlertsPanel(false) }} style={{ width: '100%', marginTop: 8, ...s.btn, backgroundColor: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted }}>
+                    ✓ Am verificat toate
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
