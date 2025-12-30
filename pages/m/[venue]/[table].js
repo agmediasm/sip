@@ -124,7 +124,6 @@ export default function SmartMenuPage() {
       if (result.status === 'ok' && result.venue && result.event) {
         await loadMenuData(result.venue.id, result.event.id, result.table?.id)
         setScreen('welcome')
-        setTimeout(() => setScreen('menu'), 2500)
       } else {
         setScreen(result.status)
       }
@@ -405,7 +404,8 @@ export default function SmartMenuPage() {
         <div style={s.centered}>
           <div style={{ fontSize: 28, fontWeight: 300, letterSpacing: 6, color: colors.champagne, marginBottom: 40, textTransform: 'uppercase' }}>{event?.name || 'S I P'}</div>
           <div style={{ fontSize: 56, fontWeight: 300, letterSpacing: 4, color: colors.ivory, marginBottom: 12 }}>{table?.table_number}</div>
-          <div style={{ fontSize: 13, letterSpacing: 3, color: colors.textMuted }}>Your table awaits</div>
+          <div style={{ fontSize: 13, letterSpacing: 3, color: colors.textMuted, marginBottom: 48 }}>Your table awaits</div>
+          <button onClick={() => setScreen('menu')} style={{ ...s.btn, ...s.btnOutline, padding: '18px 48px' }}>View Menu</button>
         </div>
       </div>
     )
