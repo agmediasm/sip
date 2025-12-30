@@ -399,14 +399,130 @@ export default function SmartMenuPage() {
   // Welcome screen
   if (screen === 'welcome') {
     return (
-      <div style={s.container}>
+      <div style={{
+        ...s.container,
+        background: `
+          radial-gradient(ellipse 80% 50% at 50% 40%, rgba(212, 175, 55, 0.15) 0%, transparent 50%),
+          radial-gradient(ellipse 60% 40% at 50% 45%, rgba(212, 175, 55, 0.1) 0%, transparent 40%),
+          radial-gradient(ellipse 100% 100% at 50% 100%, rgba(212, 175, 55, 0.05) 0%, transparent 50%),
+          linear-gradient(180deg, #08080a 0%, #0a0a0c 50%, #08080a 100%)
+        `,
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
         <Head><title>S I P - {table?.table_number}</title></Head>
-        <div style={s.centered}>
-          <div style={{ fontSize: 28, fontWeight: 300, letterSpacing: 6, color: colors.champagne, marginBottom: 40, textTransform: 'uppercase' }}>{event?.name || 'S I P'}</div>
-          <div style={{ fontSize: 56, fontWeight: 300, letterSpacing: 4, color: colors.ivory, marginBottom: 12 }}>{table?.table_number}</div>
-          <div style={{ fontSize: 13, letterSpacing: 3, color: colors.textMuted, marginBottom: 48 }}>Your table awaits</div>
-          <button onClick={() => setScreen('menu')} style={{ ...s.btn, ...s.btnOutline, padding: '18px 48px' }}>View Menu</button>
+        
+        {/* Ambient glow animation */}
+        <div style={{
+          position: 'absolute',
+          top: '30%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '300px',
+          height: '300px',
+          background: 'radial-gradient(circle, rgba(212, 175, 55, 0.08) 0%, transparent 70%)',
+          filter: 'blur(40px)',
+          animation: 'pulse 4s ease-in-out infinite',
+          pointerEvents: 'none'
+        }} />
+        
+        {/* Subtle top line accent */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '200px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.5) 50%, transparent 100%)'
+        }} />
+        
+        <div style={{ ...s.centered, position: 'relative', zIndex: 1 }}>
+          {/* Event name with glow */}
+          <div style={{ 
+            fontSize: 28, 
+            fontWeight: 300, 
+            letterSpacing: 6, 
+            color: colors.champagne, 
+            marginBottom: 40, 
+            textTransform: 'uppercase',
+            textShadow: '0 0 30px rgba(212, 175, 55, 0.3), 0 0 60px rgba(212, 175, 55, 0.1)'
+          }}>{event?.name || 'S I P'}</div>
+          
+          {/* Decorative line */}
+          <div style={{ 
+            width: 60, 
+            height: 1, 
+            background: 'linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.6), transparent)', 
+            marginBottom: 40 
+          }} />
+          
+          {/* Table number - big and bold */}
+          <div style={{ 
+            fontSize: 64, 
+            fontWeight: 200, 
+            letterSpacing: 8, 
+            color: colors.ivory, 
+            marginBottom: 16,
+            textShadow: '0 0 40px rgba(255, 255, 255, 0.1)'
+          }}>{table?.table_number}</div>
+          
+          <div style={{ 
+            fontSize: 12, 
+            letterSpacing: 4, 
+            color: colors.textMuted, 
+            marginBottom: 56,
+            textTransform: 'uppercase'
+          }}>Your table awaits</div>
+          
+          {/* Premium button */}
+          <button 
+            onClick={() => setScreen('menu')} 
+            style={{ 
+              padding: '18px 56px', 
+              background: 'transparent',
+              border: '1px solid rgba(212, 175, 55, 0.6)',
+              color: colors.champagne,
+              fontSize: 12,
+              letterSpacing: 3,
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 0 20px rgba(212, 175, 55, 0.1), inset 0 0 20px rgba(212, 175, 55, 0.05)'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = 'rgba(212, 175, 55, 0.1)'
+              e.target.style.boxShadow = '0 0 30px rgba(212, 175, 55, 0.2), inset 0 0 20px rgba(212, 175, 55, 0.1)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = 'transparent'
+              e.target.style.boxShadow = '0 0 20px rgba(212, 175, 55, 0.1), inset 0 0 20px rgba(212, 175, 55, 0.05)'
+            }}
+          >
+            View Menu
+          </button>
         </div>
+        
+        {/* Bottom decorative line */}
+        <div style={{
+          position: 'absolute',
+          bottom: 40,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '100px',
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.3) 50%, transparent 100%)'
+        }} />
+        
+        {/* CSS Animation */}
+        <style jsx>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+            50% { opacity: 0.8; transform: translateX(-50%) scale(1.1); }
+          }
+        `}</style>
       </div>
     )
   }
