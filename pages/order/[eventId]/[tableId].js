@@ -26,6 +26,7 @@ export default function OrderPage() {
   const [orderHistory, setOrderHistory] = useState([])
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [paymentType, setPaymentType] = useState(null)
+  const [assignedWaiter, setAssignedWaiter] = useState(null)
 
   useEffect(() => {
     if (eventId && tableId) loadData()
@@ -59,6 +60,10 @@ export default function OrderPage() {
       const { data: em } = await getEventMenu(eventId)
       if (em) setEventMenu(em)
 
+      // Get assigned waiter for this table
+      const { data: assignment } = await supabase.from('table_assignments').select('waiter_id').eq('event_table_id', tableId).eq('event_id', eventId).single()
+      if (assignment?.waiter_id) setAssignedWaiter(assignment.waiter_id)
+      
       // Get order history for this table
       await loadHistory()
 
@@ -101,6 +106,7 @@ export default function OrderPage() {
       const orderData = {
         venue_id: event?.venue_id, event_id: eventId, event_table_id: tableId,
         table_number: table?.table_number, payment_type: pType,
+        waiter_id: assignedWaiter,
         subtotal: cartTotal, total: cartTotal, status: 'new'
       }
       const { data: order, error } = await createOrder(orderData)
