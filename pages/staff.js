@@ -53,19 +53,20 @@ export default function StaffDashboard() {
   
   useEffect(() => {
     if (!selectedEvent || !waiter) return
-    const channelName = `staff-${waiter.id}-${selectedEvent.id}`
-    const channel = supabase.channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `event_id=eq.${selectedEvent.id}` }, (payload) => {
-        console.log('Order change:', payload.eventType)
-        if (payload.eventType === 'INSERT' && myTableIdsRef.current.includes(payload.new.event_table_id)) { setNewOrderAlert(true); playSound(); setTimeout(() => setNewOrderAlert(false), 3000) }
-        loadOrders()
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_items' }, () => {
-        console.log('New order items')
-        loadOrders()
+    const eventId = selectedEvent.id
+    const channel = supabase.channel(`orders-${eventId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `event_id=eq.${eventId}` }, (payload) => {
+        console.log('Order update:', payload.eventType, payload.new?.id)
+        if (payload.eventType === 'INSERT' && myTableIdsRef.current.includes(payload.new.event_table_id)) { 
+          setNewOrderAlert(true)
+          playSound()
+          setTimeout(() => setNewOrderAlert(false), 3000) 
+        }
+        // Reload orders
+        supabase.from('orders').select('*, event_tables(*), order_items(*)').eq('event_id', eventId).in('event_table_id', myTableIdsRef.current.length ? myTableIdsRef.current : ['00000000-0000-0000-0000-000000000000']).in('status', ['new', 'preparing', 'ready']).order('created_at', { ascending: true }).then(({ data }) => { if (data) setOrders(data) })
       })
       .subscribe((status) => {
-        console.log('Realtime subscription status:', status)
+        console.log('Realtime status:', status)
       })
     return () => { supabase.removeChannel(channel) }
   }, [selectedEvent, waiter])
