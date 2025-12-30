@@ -57,3 +57,14 @@ input, textarea, select {
   --success: #22c55e;
   --error: #ef4444;
 }
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.8; transform: translateX(-50%) scale(1.1); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(212, 175, 55, 0.1); }
+  50% { box-shadow: 0 0 40px rgba(212, 175, 55, 0.2); }
+}

@@ -320,9 +320,9 @@ export default function SmartMenuPage() {
   if (screen === 'loading') {
     return (
       <div style={s.container}>
-        <div style={s.centered}>
-          <div style={s.logo}>S I P</div>
-          <div style={{ width: 60, height: 1, backgroundColor: colors.champagne, opacity: 0.5 }} />
+        <div style={{ ...s.centered, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ fontSize: 48, fontWeight: 300, letterSpacing: 20, color: colors.champagne, paddingLeft: 20 }}>S I P</div>
+          <div style={{ width: 60, height: 1, backgroundColor: colors.champagne, opacity: 0.5, marginTop: 20 }} />
           <div style={{ marginTop: 16, fontSize: 11, color: colors.textMuted, letterSpacing: 4 }}>SE ÎNCARCĂ...</div>
         </div>
       </div>
