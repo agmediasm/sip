@@ -74,6 +74,8 @@ export default function ManagerDashboard() {
   const [selectedMenuTemplate, setSelectedMenuTemplate] = useState(null)
   const [bulkPriceChange, setBulkPriceChange] = useState({ type: 'percent', value: 0 })
   const [tempCategoryOrder, setTempCategoryOrder] = useState([])
+  const [selectedTables, setSelectedTables] = useState(new Set())
+  const [tableSelectMode, setTableSelectMode] = useState(false)
 
   useEffect(() => { const c = () => setIsDesktop(window.innerWidth >= 900); c(); window.addEventListener('resize', c); return () => window.removeEventListener('resize', c) }, [])
   useEffect(() => { loadData() }, [])
@@ -300,9 +302,6 @@ export default function ManagerDashboard() {
   const waiterColorMap = {}
   activeWaitersOnEvent.forEach((w, i) => { waiterColorMap[w.id] = waiterColors[i % waiterColors.length] })
 
-  const [selectedTables, setSelectedTables] = useState(new Set())
-  const [tableSelectMode, setTableSelectMode] = useState(false)
-  
   const toggleTableSelection = (tableId, e) => {
     e.stopPropagation()
     const newSet = new Set(selectedTables)
