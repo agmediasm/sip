@@ -426,7 +426,6 @@ export default function ManagerDashboard() {
                 <div style={{ fontSize: 14, color: colors.textMuted }}>{analytics.paidCount > 0 ? Math.round((analytics.cardCount || 0) / analytics.paidCount * 100) : 0}%</div>
               </div>
             </div>
-            {analytics.pendingCount > 0 && <div style={{ marginTop: 12, padding: 12, backgroundColor: `${colors.warning}15`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 20 }}>⏳</span><div><div style={{ fontSize: 12, color: colors.warning, fontWeight: 600 }}>{analytics.pendingCount} comenzi neplătite</div></div></div>}
           </div>
           
           {/* Top Products */}
