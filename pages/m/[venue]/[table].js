@@ -319,12 +319,89 @@ export default function SmartMenuPage() {
   // Loading
   if (screen === 'loading') {
     return (
-      <div style={s.container}>
-        <div style={{ ...s.centered, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: 48, fontWeight: 300, letterSpacing: 20, color: colors.champagne, paddingLeft: 20 }}>S I P</div>
-          <div style={{ width: 60, height: 1, backgroundColor: colors.champagne, opacity: 0.5, marginTop: 20 }} />
-          <div style={{ marginTop: 16, fontSize: 11, color: colors.textMuted, letterSpacing: 4 }}>SE ÎNCARCĂ...</div>
+      <div style={{ ...s.container, position: 'relative', overflow: 'hidden' }}>
+        {/* Animated background gradient */}
+        <div className="loading-bg" style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(ellipse 60% 60% at 50% 50%, rgba(212, 175, 55, 0.08) 0%, transparent 50%)'
+        }} />
+        
+        <div style={{ ...s.centered, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
+          {/* Rotating loader ring */}
+          <div style={{ position: 'relative', width: 120, height: 120, marginBottom: 32 }}>
+            <div className="loader-ring" style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              border: '2px solid transparent',
+              borderTopColor: colors.champagne,
+              borderRightColor: 'rgba(212, 175, 55, 0.3)'
+            }} />
+            <div className="loader-ring-2" style={{
+              position: 'absolute',
+              inset: 10,
+              borderRadius: '50%',
+              border: '1px solid transparent',
+              borderBottomColor: 'rgba(212, 175, 55, 0.5)',
+              borderLeftColor: 'rgba(212, 175, 55, 0.2)'
+            }} />
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 24,
+              fontWeight: 300,
+              letterSpacing: 8,
+              color: colors.champagne,
+              paddingLeft: 8
+            }}>S I P</div>
+          </div>
+          
+          {/* Loading dots */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div className="dot dot-1" style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: colors.champagne }} />
+            <div className="dot dot-2" style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: colors.champagne }} />
+            <div className="dot dot-3" style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: colors.champagne }} />
+          </div>
+          
+          <div className="loading-text" style={{ marginTop: 24, fontSize: 10, color: colors.textMuted, letterSpacing: 4 }}>SE ÎNCARCĂ</div>
         </div>
+        
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+          @keyframes spinReverse {
+            to { transform: rotate(-360deg); }
+          }
+          @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+          }
+          @keyframes pulse-bg {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+          }
+          @keyframes fadeInOut {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+          }
+          .loader-ring {
+            animation: spin 1.5s linear infinite;
+          }
+          .loader-ring-2 {
+            animation: spinReverse 2s linear infinite;
+          }
+          .dot { animation: bounce 1.4s ease-in-out infinite; }
+          .dot-1 { animation-delay: 0s; }
+          .dot-2 { animation-delay: 0.2s; }
+          .dot-3 { animation-delay: 0.4s; }
+          .loading-bg { animation: pulse-bg 3s ease-in-out infinite; }
+          .loading-text { animation: fadeInOut 2s ease-in-out infinite; }
+        `}</style>
       </div>
     )
   }
@@ -401,68 +478,20 @@ export default function SmartMenuPage() {
     return (
       <div style={{
         ...s.container,
-        background: `
-          radial-gradient(ellipse 80% 60% at 50% 50%, rgba(212, 175, 55, 0.12) 0%, transparent 50%),
-          radial-gradient(ellipse 50% 50% at 50% 50%, rgba(212, 175, 55, 0.08) 0%, transparent 40%),
-          linear-gradient(180deg, #06060a 0%, #08080a 50%, #06060a 100%)
-        `,
+        background: 'linear-gradient(180deg, #05050a 0%, #08080a 50%, #05050a 100%)',
         position: 'relative',
         overflow: 'hidden'
       }}>
         <Head><title>S I P - {table?.table_number}</title></Head>
         
-        {/* Animated glow ring behind table number */}
-        <div className="glow-ring" style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '280px',
-          height: '280px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%)',
-          filter: 'blur(30px)',
-          pointerEvents: 'none'
-        }} />
-        
-        {/* Rotating ring */}
-        <div className="rotating-ring" style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '200px',
-          height: '200px',
-          borderRadius: '50%',
-          border: '1px solid transparent',
-          borderTopColor: 'rgba(212, 175, 55, 0.3)',
-          borderRightColor: 'rgba(212, 175, 55, 0.1)',
-          pointerEvents: 'none'
-        }} />
-        
-        {/* Second rotating ring - opposite direction */}
-        <div className="rotating-ring-reverse" style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '240px',
-          height: '240px',
-          borderRadius: '50%',
-          border: '1px solid transparent',
-          borderBottomColor: 'rgba(212, 175, 55, 0.2)',
-          borderLeftColor: 'rgba(212, 175, 55, 0.05)',
-          pointerEvents: 'none'
-        }} />
-        
         {/* Floating particles */}
-        {[...Array(6)].map((_, i) => (
+        {[...Array(8)].map((_, i) => (
           <div key={i} className={`particle particle-${i}`} style={{
             position: 'absolute',
-            width: 4,
-            height: 4,
+            width: i % 2 === 0 ? 3 : 2,
+            height: i % 2 === 0 ? 3 : 2,
             borderRadius: '50%',
-            backgroundColor: 'rgba(212, 175, 55, 0.4)',
+            backgroundColor: `rgba(212, 175, 55, ${0.2 + (i % 3) * 0.1})`,
             pointerEvents: 'none'
           }} />
         ))}
@@ -481,28 +510,77 @@ export default function SmartMenuPage() {
         <div style={{ ...s.centered, position: 'relative', zIndex: 1 }}>
           {/* Event name with glow */}
           <div className="fade-in-down" style={{ 
-            fontSize: 24, 
+            fontSize: 22, 
             fontWeight: 300, 
             letterSpacing: 8, 
             color: colors.champagne, 
-            marginBottom: 48, 
+            marginBottom: 56, 
             textTransform: 'uppercase',
             textShadow: '0 0 40px rgba(212, 175, 55, 0.4), 0 0 80px rgba(212, 175, 55, 0.2)'
           }}>{event?.name || 'S I P'}</div>
           
-          {/* Table number - big and bold */}
-          <div className="scale-in" style={{ 
-            fontSize: 72, 
-            fontWeight: 200, 
-            letterSpacing: 12, 
-            color: colors.ivory, 
-            marginBottom: 16,
-            textShadow: '0 0 60px rgba(255, 255, 255, 0.15), 0 0 100px rgba(212, 175, 55, 0.1)',
-            paddingLeft: 12
-          }}>{table?.table_number}</div>
+          {/* Table number container with rings */}
+          <div style={{ position: 'relative', marginBottom: 24 }}>
+            {/* Glow behind */}
+            <div className="glow-ring" style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '200px',
+              height: '200px',
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, transparent 70%)',
+              filter: 'blur(20px)',
+              pointerEvents: 'none'
+            }} />
+            
+            {/* Rotating ring 1 */}
+            <div className="rotating-ring" style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '160px',
+              height: '160px',
+              borderRadius: '50%',
+              border: '1px solid transparent',
+              borderTopColor: 'rgba(212, 175, 55, 0.4)',
+              borderRightColor: 'rgba(212, 175, 55, 0.1)',
+              pointerEvents: 'none'
+            }} />
+            
+            {/* Rotating ring 2 - opposite */}
+            <div className="rotating-ring-reverse" style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '190px',
+              height: '190px',
+              borderRadius: '50%',
+              border: '1px solid transparent',
+              borderBottomColor: 'rgba(212, 175, 55, 0.25)',
+              borderLeftColor: 'rgba(212, 175, 55, 0.05)',
+              pointerEvents: 'none'
+            }} />
+            
+            {/* Table number */}
+            <div className="scale-in" style={{ 
+              fontSize: 72, 
+              fontWeight: 200, 
+              letterSpacing: 10, 
+              color: colors.ivory, 
+              textShadow: '0 0 60px rgba(255, 255, 255, 0.15), 0 0 100px rgba(212, 175, 55, 0.1)',
+              paddingLeft: 10,
+              position: 'relative',
+              zIndex: 2,
+              padding: '40px 50px'
+            }}>{table?.table_number}</div>
+          </div>
           
           {/* Decorative dots */}
-          <div className="fade-in" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <div className="fade-in" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'rgba(212, 175, 55, 0.3)' }} />
             <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'rgba(212, 175, 55, 0.6)' }} />
             <div style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'rgba(212, 175, 55, 0.3)' }} />
@@ -512,27 +590,25 @@ export default function SmartMenuPage() {
             fontSize: 11, 
             letterSpacing: 6, 
             color: colors.textMuted, 
-            marginBottom: 56,
+            marginBottom: 48,
             textTransform: 'uppercase'
           }}>Your table awaits</div>
           
-          {/* Premium button with shimmer */}
+          {/* Premium button */}
           <button 
-            className="btn-shimmer fade-in-up-delay"
+            className="btn-glow"
             onClick={() => setScreen('menu')} 
             style={{ 
-              padding: '20px 64px', 
-              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, transparent 50%, rgba(212, 175, 55, 0.1) 100%)',
-              border: '1px solid rgba(212, 175, 55, 0.4)',
+              padding: '18px 56px', 
+              background: 'transparent',
+              border: '1px solid rgba(212, 175, 55, 0.5)',
               color: colors.champagne,
-              fontSize: 13,
+              fontSize: 12,
               letterSpacing: 4,
               textTransform: 'uppercase',
               cursor: 'pointer',
-              position: 'relative',
-              overflow: 'hidden',
-              transition: 'all 0.4s ease',
-              boxShadow: '0 0 30px rgba(212, 175, 55, 0.1)'
+              transition: 'all 0.3s ease',
+              opacity: 1
             }}
           >
             View Menu
@@ -540,7 +616,7 @@ export default function SmartMenuPage() {
         </div>
         
         {/* Bottom decorative element */}
-        <div style={{
+        <div className="fade-in-slow" style={{
           position: 'absolute',
           bottom: 48,
           left: '50%',
@@ -565,30 +641,24 @@ export default function SmartMenuPage() {
             to { transform: translate(-50%, -50%) rotate(0deg); }
           }
           @keyframes float {
-            0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
+            0%, 100% { transform: translateY(0); opacity: 0.2; }
+            50% { transform: translateY(-30px); opacity: 0.6; }
           }
           @keyframes pulse-glow {
             0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
           }
           @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-20px); }
+            from { opacity: 0; transform: translateY(-30px); }
             to { opacity: 1; transform: translateY(0); }
           }
           @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
           }
           @keyframes scaleIn {
-            from { opacity: 0; transform: scale(0.8); }
+            from { opacity: 0; transform: scale(0.7); }
             to { opacity: 1; transform: scale(1); }
-          }
-          @keyframes shimmer {
-            0% { background-position: -200% center; }
-            100% { background-position: 200% center; }
           }
           @keyframes fadeIn {
             from { opacity: 0; }
@@ -598,33 +668,36 @@ export default function SmartMenuPage() {
             animation: pulse-glow 3s ease-in-out infinite;
           }
           .rotating-ring {
-            animation: rotate 20s linear infinite;
+            animation: rotate 15s linear infinite;
           }
           .rotating-ring-reverse {
-            animation: rotateReverse 25s linear infinite;
+            animation: rotateReverse 20s linear infinite;
           }
-          .particle-0 { top: 60%; left: 30%; animation: float 4s ease-in-out infinite; animation-delay: 0s; }
-          .particle-1 { top: 40%; left: 70%; animation: float 5s ease-in-out infinite; animation-delay: 1s; }
-          .particle-2 { top: 55%; left: 25%; animation: float 4.5s ease-in-out infinite; animation-delay: 2s; }
-          .particle-3 { top: 45%; left: 75%; animation: float 5.5s ease-in-out infinite; animation-delay: 0.5s; }
-          .particle-4 { top: 65%; left: 65%; animation: float 4s ease-in-out infinite; animation-delay: 1.5s; }
-          .particle-5 { top: 35%; left: 35%; animation: float 5s ease-in-out infinite; animation-delay: 2.5s; }
-          .fade-in-down { animation: fadeInDown 0.8s ease-out forwards; }
-          .fade-in-up { animation: fadeInUp 0.8s ease-out forwards; animation-delay: 0.3s; opacity: 0; }
-          .fade-in-up-delay { animation: fadeInUp 0.8s ease-out forwards; animation-delay: 0.6s; opacity: 0; }
-          .scale-in { animation: scaleIn 0.8s ease-out forwards; animation-delay: 0.1s; }
-          .fade-in { animation: fadeIn 1s ease-out forwards; animation-delay: 0.4s; opacity: 0; }
-          .btn-shimmer {
-            background-size: 200% 100%;
-            animation: shimmer 3s ease-in-out infinite;
+          .particle-0 { top: 20%; left: 15%; animation: float 6s ease-in-out infinite; }
+          .particle-1 { top: 30%; left: 85%; animation: float 7s ease-in-out infinite; animation-delay: 1s; }
+          .particle-2 { top: 70%; left: 10%; animation: float 5s ease-in-out infinite; animation-delay: 2s; }
+          .particle-3 { top: 80%; left: 90%; animation: float 8s ease-in-out infinite; animation-delay: 0.5s; }
+          .particle-4 { top: 15%; left: 60%; animation: float 6.5s ease-in-out infinite; animation-delay: 3s; }
+          .particle-5 { top: 85%; left: 40%; animation: float 5.5s ease-in-out infinite; animation-delay: 1.5s; }
+          .particle-6 { top: 50%; left: 5%; animation: float 7s ease-in-out infinite; animation-delay: 2.5s; }
+          .particle-7 { top: 45%; left: 95%; animation: float 6s ease-in-out infinite; animation-delay: 4s; }
+          .fade-in-down { animation: fadeInDown 1s ease-out forwards; }
+          .fade-in-up { animation: fadeInUp 1s ease-out forwards; }
+          .scale-in { animation: scaleIn 1s ease-out forwards; }
+          .fade-in { animation: fadeIn 1s ease-out forwards; animation-delay: 0.5s; opacity: 0; }
+          .fade-in-slow { animation: fadeIn 1.5s ease-out forwards; animation-delay: 1s; opacity: 0; }
+          .btn-glow {
+            animation: fadeInUp 0.8s ease-out forwards;
+            animation-delay: 0.8s;
+            opacity: 0;
           }
-          .btn-shimmer:hover {
-            background: rgba(212, 175, 55, 0.15);
-            box-shadow: 0 0 50px rgba(212, 175, 55, 0.3);
-            transform: scale(1.02);
+          .btn-glow:hover {
+            background: rgba(212, 175, 55, 0.1);
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.3);
+            transform: scale(1.05);
           }
           .line-animate {
-            animation: fadeIn 1.5s ease-out forwards;
+            animation: fadeIn 2s ease-out forwards;
           }
         `}</style>
       </div>
