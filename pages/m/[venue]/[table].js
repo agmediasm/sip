@@ -407,7 +407,9 @@ export default function SmartMenuPage() {
     // Menu items with card style
     menu: { 
       padding: '12px 16px', 
-      paddingBottom: 140 
+      paddingTop: 16,
+      paddingBottom: 140,
+      marginTop: 0
     },
     menuItem: { 
       backgroundColor: colors.onyx,
@@ -884,25 +886,144 @@ export default function SmartMenuPage() {
         <div style={{ ...s.testBanner, top: !isOnline ? 32 : 0 }}>🧪 MOD TESTARE</div>
       )}
       
-      {/* Order success overlay */}
+      {/* Premium Order Success Overlay */}
       {orderPlaced && (
-        <div style={s.successModal}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 64, marginBottom: 24 }}>✓</div>
-            <div style={{ fontSize: 24, fontWeight: 400, marginBottom: 8, color: colors.champagne }}>Comandă plasată!</div>
-            <div style={{ fontSize: 14, color: colors.textMuted }}>
-              {!isOnline ? 'Se trimite când revine conexiunea' : paymentType === 'cash' ? 'Pregătește cash' : 'Vei plăti cu cardul'}
+        <div style={{
+          ...s.successModal,
+          background: 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.15) 0%, rgba(0,0,0,0.95) 70%)'
+        }}>
+          <div style={{ 
+            textAlign: 'center',
+            padding: 40,
+            maxWidth: 320
+          }}>
+            {/* Animated checkmark */}
+            <div style={{ 
+              width: 100,
+              height: 100,
+              margin: '0 auto 32px',
+              borderRadius: '50%',
+              background: `linear-gradient(135deg, ${colors.success}, ${colors.successDark})`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: `0 0 60px rgba(16, 185, 129, 0.4), 0 0 100px rgba(16, 185, 129, 0.2)`,
+              animation: 'successPop 0.5s ease-out'
+            }}>
+              <span style={{ fontSize: 48, color: '#fff' }}>✓</span>
+            </div>
+            
+            {/* Title */}
+            <div style={{ 
+              fontSize: 28, 
+              fontWeight: 600, 
+              marginBottom: 12, 
+              color: colors.textPrimary,
+              letterSpacing: 1
+            }}>
+              Comandă plasată!
+            </div>
+            
+            {/* Subtitle */}
+            <div style={{ 
+              fontSize: 15, 
+              color: colors.textSecondary,
+              marginBottom: 32,
+              lineHeight: 1.6
+            }}>
+              {!isOnline 
+                ? 'Se trimite automat când revine conexiunea' 
+                : paymentType === 'cash' 
+                  ? 'Ospătarul vine să încaseze cash' 
+                  : 'Ospătarul vine cu POS-ul pentru card'
+              }
+            </div>
+            
+            {/* Payment type badge */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '14px 28px',
+              borderRadius: 12,
+              backgroundColor: paymentType === 'cash' ? `${colors.success}15` : 'rgba(59, 130, 246, 0.15)',
+              border: `1px solid ${paymentType === 'cash' ? colors.success : '#3b82f6'}30`
+            }}>
+              <span style={{ fontSize: 24 }}>{paymentType === 'cash' ? '💵' : '💳'}</span>
+              <span style={{ 
+                fontSize: 14, 
+                fontWeight: 600, 
+                color: paymentType === 'cash' ? colors.success : '#3b82f6',
+                letterSpacing: 1,
+                textTransform: 'uppercase'
+              }}>
+                {paymentType === 'cash' ? 'Cash' : 'Card'}
+              </span>
+            </div>
+            
+            {/* Total reminder */}
+            <div style={{
+              marginTop: 32,
+              padding: '16px 24px',
+              borderRadius: 12,
+              backgroundColor: `${colors.champagne}10`,
+              border: `1px solid ${colors.champagne}20`
+            }}>
+              <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 6, letterSpacing: 1 }}>TOTAL DE PLATĂ</div>
+              <div style={{ 
+                fontSize: 32, 
+                fontWeight: 700, 
+                color: colors.champagne,
+                textShadow: `0 0 30px ${colors.glowChampagne}`
+              }}>{cartTotal} LEI</div>
             </div>
           </div>
         </div>
       )}
       
-      {/* Submitting overlay */}
+      {/* Premium Submitting Overlay */}
       {isSubmitting && (
-        <div style={s.successModal}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 32, marginBottom: 16, animation: 'spin 1s linear infinite' }}>⏳</div>
-            <div style={{ fontSize: 16, color: colors.textMuted }}>Se trimite comanda...</div>
+        <div style={{
+          ...s.successModal,
+          background: 'radial-gradient(ellipse at center, rgba(212, 175, 55, 0.1) 0%, rgba(0,0,0,0.95) 70%)'
+        }}>
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            {/* Animated loader */}
+            <div style={{ 
+              width: 80,
+              height: 80,
+              margin: '0 auto 32px',
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '50%',
+                border: `3px solid ${colors.border}`,
+                borderTopColor: colors.champagne,
+                animation: 'spin 1s linear infinite'
+              }} />
+              <div style={{
+                position: 'absolute',
+                inset: 10,
+                borderRadius: '50%',
+                border: `2px solid ${colors.border}`,
+                borderBottomColor: colors.champagneLight,
+                animation: 'spinReverse 0.8s linear infinite'
+              }} />
+            </div>
+            
+            <div style={{ 
+              fontSize: 18, 
+              fontWeight: 500,
+              color: colors.textPrimary,
+              marginBottom: 8,
+              letterSpacing: 1
+            }}>Se trimite comanda...</div>
+            <div style={{ 
+              fontSize: 13, 
+              color: colors.textMuted 
+            }}>Te rugăm să aștepți</div>
           </div>
         </div>
       )}
@@ -1616,6 +1737,13 @@ export default function SmartMenuPage() {
         @keyframes cartPulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.02); }
+        }
+        
+        /* Success popup animation */
+        @keyframes successPop {
+          0% { transform: scale(0); opacity: 0; }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1); opacity: 1; }
         }
         .cart-btn-pulse {
           animation: cartPulse 2s ease-in-out infinite;
