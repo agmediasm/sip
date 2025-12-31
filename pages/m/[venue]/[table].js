@@ -317,20 +317,30 @@ export default function SmartMenuPage() {
     return catSlug === selectedCat
   })
 
-  // Countdown timer for upcoming events
+  // Countdown timer for upcoming events - now with seconds
+  const [secondsRemaining, setSecondsRemaining] = useState(0)
+  
   useEffect(() => {
-    if (status !== 'upcoming' || minutesUntilStart <= 0) return
-    const interval = setInterval(() => {
-      setMinutesUntilStart(prev => Math.max(0, prev - 1))
-    }, 60000)
-    return () => clearInterval(interval)
+    if (status !== 'upcoming') return
+    // Initialize with full seconds
+    setSecondsRemaining(minutesUntilStart * 60)
   }, [status, minutesUntilStart])
+  
+  useEffect(() => {
+    if (status !== 'upcoming' || secondsRemaining <= 0) return
+    const interval = setInterval(() => {
+      setSecondsRemaining(prev => Math.max(0, prev - 1))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [status, secondsRemaining])
 
-  const formatCountdown = (mins) => {
-    const h = Math.floor(mins / 60)
-    const m = mins % 60
-    if (h > 0) return `${h}h ${m}m`
-    return `${m} minute`
+  const formatCountdown = () => {
+    const h = Math.floor(secondsRemaining / 3600)
+    const m = Math.floor((secondsRemaining % 3600) / 60)
+    const s = secondsRemaining % 60
+    const pad = (n) => n.toString().padStart(2, '0')
+    if (h > 0) return `${pad(h)}:${pad(m)}:${pad(s)}`
+    return `${pad(m)}:${pad(s)}`
   }
 
   // Premium Dark Luxury Styles
@@ -678,13 +688,14 @@ export default function SmartMenuPage() {
               textTransform: 'uppercase'
             }}>Începe în</div>
             <div style={{ 
-              fontSize: 56, 
+              fontSize: 52, 
               fontWeight: 300, 
               color: colors.champagne, 
-              letterSpacing: 4,
+              letterSpacing: 6,
+              fontFamily: 'monospace',
               textShadow: `0 0 30px ${colors.glowChampagne}`
             }}>
-              {formatCountdown(minutesUntilStart)}
+              {formatCountdown()}
             </div>
           </div>
           
