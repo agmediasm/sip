@@ -356,12 +356,14 @@ export default function SmartMenuPage() {
     btnPrimary: { backgroundColor: colors.champagne, color: colors.noir },
     btnOutline: { backgroundColor: 'transparent', border: `1px solid ${colors.champagne}`, color: colors.champagne },
     
-    // Premium Header with blur
+    // Premium Header with blur - fixed position
     header: { 
-      position: 'sticky', 
-      top: 0, 
+      position: 'fixed', 
+      top: 0,
+      left: 0,
+      right: 0,
       zIndex: 40, 
-      backgroundColor: 'rgba(10, 10, 12, 0.85)',
+      backgroundColor: 'rgba(10, 10, 12, 0.92)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
       borderBottom: `1px solid ${colors.border}`
@@ -402,12 +404,15 @@ export default function SmartMenuPage() {
       boxShadow: `0 0 20px ${colors.glowChampagne}`
     },
     
-    // Menu items with card style
+    // Menu items with card style - paddingTop compensates for fixed header
     menu: { 
-      padding: '12px 16px', 
-      paddingTop: 16,
-      paddingBottom: 140,
-      marginTop: 0
+      padding: '16px 16px', 
+      paddingTop: 135,  // Height of fixed header (headerTop + categories)
+      paddingBottom: 140
+    },
+    // Extra padding when test/offline banner is shown
+    menuWithBanner: {
+      paddingTop: 175  // 135 + 40 for banner
     },
     menuItem: { 
       backgroundColor: colors.onyx,
@@ -1138,7 +1143,7 @@ export default function SmartMenuPage() {
       </header>
 
       {/* Premium Menu Items */}
-      <main style={s.menu}>
+      <main style={{ ...s.menu, ...((isTestMode || !isOnline) ? s.menuWithBanner : {}) }}>
         {filteredItems.length === 0 && (
           <div style={{ 
             textAlign: 'center', 
@@ -1772,23 +1777,16 @@ export default function SmartMenuPage() {
           }
         }
         
-        /* Smooth scrolling + disable pull-to-refresh */
-        html {
-          overflow: hidden;
-          height: 100%;
-        }
-        
-        body {
-          height: 100%;
-          overflow-y: scroll;
-          overflow-x: hidden;
-          -webkit-overflow-scrolling: touch;
-          overscroll-behavior-y: contain;
-          -webkit-tap-highlight-color: transparent;
-        }
-        
         /* Font import */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        /* Reset and base styles */
+        html, body {
+          margin: 0;
+          padding: 0;
+          -webkit-tap-highlight-color: transparent;
+          overscroll-behavior-y: none;
+        }
         
         /* Active states for touch */
         button:active {
