@@ -86,25 +86,16 @@ export default function StaffDashboard() {
     setLoading(false)
   }
 
-  // Load orders WITH order_items - includes my tables AND broadcast orders (unassigned tables)
+  // Load orders WITH order_items for my tables
   const loadOrders = async () => {
-    // Build filter: my tables OR broadcast_to_all
-    const myTables = myTableIdsRef.current.length ? myTableIdsRef.current : []
-    let query = supabase
+    const myTables = myTableIdsRef.current.length ? myTableIdsRef.current : ['00000000-0000-0000-0000-000000000000']
+    const { data } = await supabase
       .from('orders')
       .select('*, event_tables(*), order_items(*)')
       .eq('event_id', selectedEvent.id)
+      .in('event_table_id', myTables)
       .in('status', ['new', 'preparing', 'ready'])
-    
-    if (myTables.length > 0) {
-      // Get orders for my tables OR broadcast orders
-      query = query.or(`event_table_id.in.(${myTables.join(',')}),broadcast_to_all.eq.true`)
-    } else {
-      // Only broadcast orders if no tables assigned
-      query = query.eq('broadcast_to_all', true)
-    }
-    
-    const { data } = await query.order('created_at', { ascending: true })
+      .order('created_at', { ascending: true })
     if (data) setOrders(data)
   }
 
@@ -131,32 +122,7 @@ export default function StaffDashboard() {
   const handleLogout = () => { setWaiter(null); localStorage.removeItem('sip_waiter'); setOrders([]); setSelectedEvent(null) }
 
   const handleOrderStatus = async (orderId, newStatus) => {
-    // Get order first to check if it's a broadcast order
-    const { data: orderData } = await supabase.from('orders').select('*').eq('id', orderId).single()
-    
-    const updates = { status: newStatus }
-    
-    // If accepting (preparing) a broadcast order, assign it to this waiter
-    if (newStatus === 'preparing' && orderData?.broadcast_to_all) {
-      updates.waiter_id = waiter.id
-      updates.broadcast_to_all = false
-      
-      // Also assign the table to this waiter for future orders
-      if (orderData.event_table_id && selectedEvent) {
-        await supabase.from('table_assignments').upsert({
-          event_table_id: orderData.event_table_id,
-          waiter_id: waiter.id,
-          event_id: selectedEvent.id
-        }, { onConflict: 'event_table_id,event_id' })
-        
-        // Update my tables ref
-        if (!myTableIdsRef.current.includes(orderData.event_table_id)) {
-          myTableIdsRef.current = [...myTableIdsRef.current, orderData.event_table_id]
-        }
-      }
-    }
-    
-    const { error } = await supabase.from('orders').update(updates).eq('id', orderId)
+    const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
     if (!error) loadOrders()
   }
 
@@ -519,7 +485,6 @@ export default function StaffDashboard() {
           <div>
             <div style={{ fontSize: 16, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
               {o.event_tables?.table_number || o.table_number || 'Masă'}
-              {o.broadcast_to_all && <span style={{ fontSize: 9, padding: '2px 6px', backgroundColor: colors.error, color: '#fff', borderRadius: 4, animation: 'pulse 1s infinite' }}>🆕 MASĂ NOUĂ</span>}
             </div>
             <div style={{ fontSize: 10, color: colors.textMuted }}>{new Date(o.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</div>
           </div>

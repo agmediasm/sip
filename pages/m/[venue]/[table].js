@@ -233,8 +233,7 @@ export default function SmartMenuPage() {
           waiter_id: assignedWaiter,
           subtotal: cartTotal,
           total: cartTotal,
-          status: 'new',
-          broadcast_to_all: !assignedWaiter // If no waiter assigned, broadcast to all
+          status: 'new'
         },
         items: cart.map(item => ({
           menu_item_id: item.id,
