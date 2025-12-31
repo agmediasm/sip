@@ -1,14 +1,3 @@
 {
-  "rewrites": [
-    {
-      "source": "/:table",
-      "has": [
-        {
-          "type": "host",
-          "value": "(?<venue>[^.]+).sip-app.ro"
-        }
-      ],
-      "destination": "/m/:venue/:table"
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
