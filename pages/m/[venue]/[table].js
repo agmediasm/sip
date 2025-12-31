@@ -38,6 +38,9 @@ export default function SmartMenuPage() {
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [paymentType, setPaymentType] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [lastOrderTime, setLastOrderTime] = useState(0)
+  const [rateLimitError, setRateLimitError] = useState('')
+  const ORDER_COOLDOWN = 30000 // 30 seconds between orders
   const [assignedWaiter, setAssignedWaiter] = useState(null)
   
   // History
@@ -220,7 +223,19 @@ export default function SmartMenuPage() {
 
   const placeOrder = async (pType) => {
     if (isSubmitting) return
+    
+    // Rate limiting check
+    const now = Date.now()
+    const timeSinceLastOrder = now - lastOrderTime
+    if (timeSinceLastOrder < ORDER_COOLDOWN) {
+      const secondsRemaining = Math.ceil((ORDER_COOLDOWN - timeSinceLastOrder) / 1000)
+      setRateLimitError(`Așteaptă ${secondsRemaining}s înainte de o nouă comandă`)
+      setTimeout(() => setRateLimitError(''), 3000)
+      return
+    }
+    
     setIsSubmitting(true)
+    setRateLimitError('')
     
     try {
       const orderData = {
@@ -252,12 +267,14 @@ export default function SmartMenuPage() {
         setPaymentType(pType)
         setOrderPlaced(true)
         setShowCart(false)
+        setLastOrderTime(Date.now())
         setTimeout(() => { setOrderPlaced(false); clearCart() }, 4000)
       } else {
         await submitOrderToServer(orderData)
         setPaymentType(pType)
         setOrderPlaced(true)
         setShowCart(false)
+        setLastOrderTime(Date.now())
         setTimeout(() => { setOrderPlaced(false); setPaymentType(null); clearCart() }, 4000)
       }
     } catch (error) {
@@ -869,8 +886,9 @@ export default function SmartMenuPage() {
                 </div>
                 <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16 }}>Alege metoda de plată:</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <button onClick={() => placeOrder('cash')} disabled={isSubmitting} style={{ padding: 16, backgroundColor: colors.success, color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: isSubmitting ? 0.6 : 1 }}>💵 CASH</button>
-                  <button onClick={() => placeOrder('card')} disabled={isSubmitting} style={{ padding: 16, backgroundColor: '#3b82f6', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: isSubmitting ? 0.6 : 1 }}>💳 CARD</button>
+                  {rateLimitError && <div style={{ gridColumn: 'span 2', textAlign: 'center', color: colors.warning, fontSize: 12, padding: 8, backgroundColor: `${colors.warning}20`, borderRadius: 6 }}>⏳ {rateLimitError}</div>}
+                  <button onClick={() => placeOrder('cash')} disabled={isSubmitting || !!rateLimitError} style={{ padding: 16, backgroundColor: colors.success, color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: (isSubmitting || rateLimitError) ? 0.6 : 1 }}>💵 CASH</button>
+                  <button onClick={() => placeOrder('card')} disabled={isSubmitting || !!rateLimitError} style={{ padding: 16, backgroundColor: '#3b82f6', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: (isSubmitting || rateLimitError) ? 0.6 : 1 }}>💳 CARD</button>
                 </div>
               </div>
             )}
