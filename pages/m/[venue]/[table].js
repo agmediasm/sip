@@ -589,12 +589,13 @@ export default function SmartMenuPage() {
   // Venue not found
   if (status === 'venue_not_found') {
     return (
-      <div style={s.container}>
+      <div style={{ ...s.container, background: 'linear-gradient(180deg, #0a0a0c 0%, #0d0d10 50%, #0a0a0c 100%)' }}>
         <Head><title>S I P - Locație negăsită</title></Head>
         <div style={s.centered}>
-          <div style={s.logo}>S I P</div>
-          <div style={s.title}>Locație negăsită</div>
-          <div style={s.subtitle}>Codul QR nu este valid sau locația nu există.</div>
+          <div style={{ fontSize: 42, fontWeight: 300, letterSpacing: 20, color: colors.champagne, marginBottom: 48, textShadow: `0 0 40px ${colors.glowChampagne}` }}>S I P</div>
+          <div style={{ fontSize: 48, marginBottom: 24, opacity: 0.5 }}>🔍</div>
+          <div style={{ fontSize: 20, fontWeight: 400, marginBottom: 12, color: colors.textPrimary }}>Locație negăsită</div>
+          <div style={{ fontSize: 14, color: colors.textMuted, maxWidth: 280, lineHeight: 1.6 }}>Codul QR nu este valid sau locația nu există.</div>
         </div>
       </div>
     )
@@ -603,13 +604,13 @@ export default function SmartMenuPage() {
   // No event
   if (status === 'no_event') {
     return (
-      <div style={s.container}>
-        <Head><title>S I P - {venue?.name || 'Menu'}</title></Head>
+      <div style={{ ...s.container, background: 'linear-gradient(180deg, #0a0a0c 0%, #0d0d10 50%, #0a0a0c 100%)' }}>
+        <Head><title>S I P</title></Head>
         <div style={s.centered}>
-          <div style={s.logo}>S I P</div>
-          {venue && <div style={s.badge}>{venue.name}</div>}
-          <div style={s.title}>Niciun eveniment activ</div>
-          <div style={s.subtitle}>Revino când începe petrecerea! 🎉</div>
+          <div style={{ fontSize: 42, fontWeight: 300, letterSpacing: 20, color: colors.champagne, marginBottom: 48, textShadow: `0 0 40px ${colors.glowChampagne}` }}>S I P</div>
+          <div style={{ fontSize: 48, marginBottom: 24 }}>🎉</div>
+          <div style={{ fontSize: 20, fontWeight: 400, marginBottom: 12, color: colors.textPrimary }}>Niciun eveniment activ</div>
+          <div style={{ fontSize: 14, color: colors.textMuted, maxWidth: 280, lineHeight: 1.6 }}>Revino când începe petrecerea!</div>
         </div>
       </div>
     )
@@ -618,19 +619,97 @@ export default function SmartMenuPage() {
   // Upcoming event
   if (status === 'upcoming') {
     return (
-      <div style={s.container}>
+      <div style={{
+        ...s.container,
+        background: 'linear-gradient(180deg, #0a0a0c 0%, #0d0d10 50%, #0a0a0c 100%)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
         <Head><title>S I P - {event?.name || 'Coming Soon'}</title></Head>
-        <div style={s.centered}>
-          <div style={s.logo}>S I P</div>
-          {venue && <div style={{ fontSize: 11, letterSpacing: 4, color: colors.textMuted, marginBottom: 24 }}>{venue.name}</div>}
-          <div style={s.badge}>{event?.name}</div>
-          <div style={s.title}>Începe în:</div>
-          <div style={{ fontSize: 48, fontWeight: 300, color: colors.champagne, marginBottom: 24 }}>
-            {formatCountdown(minutesUntilStart)}
+        
+        {/* Background glow */}
+        <div style={{
+          position: 'absolute',
+          top: '30%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 300,
+          height: 300,
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${colors.glowChampagne} 0%, transparent 70%)`,
+          filter: 'blur(60px)',
+          pointerEvents: 'none'
+        }} />
+        
+        <div style={{ ...s.centered, position: 'relative', zIndex: 1 }}>
+          {/* Logo centered */}
+          <div style={{ 
+            fontSize: 42, 
+            fontWeight: 300, 
+            letterSpacing: 20, 
+            color: colors.champagne,
+            marginBottom: 48,
+            textShadow: `0 0 40px ${colors.glowChampagne}`
+          }}>S I P</div>
+          
+          {/* Event name */}
+          <div style={{ 
+            fontSize: 12, 
+            letterSpacing: 4, 
+            color: colors.textMuted, 
+            marginBottom: 48,
+            textTransform: 'uppercase'
+          }}>{event?.name}</div>
+          
+          {/* Countdown container */}
+          <div style={{
+            padding: '32px 48px',
+            borderRadius: 20,
+            backgroundColor: 'rgba(255,255,255,0.03)',
+            border: `1px solid ${colors.border}`,
+            textAlign: 'center',
+            marginBottom: 40
+          }}>
+            <div style={{ 
+              fontSize: 12, 
+              letterSpacing: 3, 
+              color: colors.textMuted, 
+              marginBottom: 16,
+              textTransform: 'uppercase'
+            }}>Începe în</div>
+            <div style={{ 
+              fontSize: 56, 
+              fontWeight: 300, 
+              color: colors.champagne, 
+              letterSpacing: 4,
+              textShadow: `0 0 30px ${colors.glowChampagne}`
+            }}>
+              {formatCountdown(minutesUntilStart)}
+            </div>
           </div>
-          <div style={s.subtitle}>
-            Ora start: {event?.start_time || '22:00'}<br/>
-            Scanează din nou când începe evenimentul
+          
+          {/* Start time info */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            color: colors.textMuted,
+            fontSize: 13
+          }}>
+            <span>🕐</span>
+            <span>Start: {event?.start_time || '22:00'}</span>
+          </div>
+          
+          {/* Hint */}
+          <div style={{ 
+            marginTop: 48, 
+            fontSize: 12, 
+            color: 'rgba(255,255,255,0.3)',
+            textAlign: 'center',
+            maxWidth: 260,
+            lineHeight: 1.6
+          }}>
+            Scanează din nou codul QR când începe evenimentul
           </div>
         </div>
       </div>
@@ -640,14 +719,14 @@ export default function SmartMenuPage() {
   // Table not found
   if (status === 'table_not_found') {
     return (
-      <div style={s.container}>
-        <Head><title>S I P - {event?.name || 'Menu'}</title></Head>
+      <div style={{ ...s.container, background: 'linear-gradient(180deg, #0a0a0c 0%, #0d0d10 50%, #0a0a0c 100%)' }}>
+        <Head><title>S I P</title></Head>
         <div style={s.centered}>
-          <div style={s.logo}>S I P</div>
-          {event && <div style={s.badge}>{event.name}</div>}
-          <div style={s.title}>Masa {tableNumber} nu este disponibilă</div>
-          <div style={s.subtitle}>Verifică numărul mesei sau cheamă un ospătar pentru asistență.</div>
-          <button style={{ ...s.btn, ...s.btnOutline, marginTop: 16 }}>🙋 Cheamă ospătar</button>
+          <div style={{ fontSize: 42, fontWeight: 300, letterSpacing: 20, color: colors.champagne, marginBottom: 48, textShadow: `0 0 40px ${colors.glowChampagne}` }}>S I P</div>
+          {event && <div style={{ fontSize: 12, letterSpacing: 4, color: colors.textMuted, marginBottom: 32, textTransform: 'uppercase' }}>{event.name}</div>}
+          <div style={{ fontSize: 48, marginBottom: 24, opacity: 0.5 }}>🪑</div>
+          <div style={{ fontSize: 20, fontWeight: 400, marginBottom: 12, color: colors.textPrimary }}>Masa {tableNumber} nu există</div>
+          <div style={{ fontSize: 14, color: colors.textMuted, maxWidth: 280, lineHeight: 1.6, marginBottom: 32 }}>Verifică numărul mesei sau cheamă un ospătar.</div>
         </div>
       </div>
     )
@@ -867,13 +946,27 @@ export default function SmartMenuPage() {
   // Error
   if (status === 'error') {
     return (
-      <div style={s.container}>
+      <div style={{ ...s.container, background: 'linear-gradient(180deg, #0a0a0c 0%, #0d0d10 50%, #0a0a0c 100%)' }}>
         <Head><title>S I P - Eroare</title></Head>
         <div style={s.centered}>
-          <div style={s.logo}>S I P</div>
-          <div style={s.title}>Oops!</div>
-          <div style={s.subtitle}>{message || 'A apărut o eroare. Reîncearcă.'}</div>
-          <button onClick={() => router.reload()} style={{ ...s.btn, ...s.btnPrimary }}>Reîncearcă</button>
+          <div style={{ fontSize: 42, fontWeight: 300, letterSpacing: 20, color: colors.champagne, marginBottom: 48, textShadow: `0 0 40px ${colors.glowChampagne}` }}>S I P</div>
+          <div style={{ fontSize: 48, marginBottom: 24 }}>⚠️</div>
+          <div style={{ fontSize: 20, fontWeight: 400, marginBottom: 12, color: colors.textPrimary }}>Oops!</div>
+          <div style={{ fontSize: 14, color: colors.textMuted, maxWidth: 280, lineHeight: 1.6, marginBottom: 32 }}>{message || 'A apărut o eroare. Reîncearcă.'}</div>
+          <button 
+            onClick={() => router.reload()} 
+            style={{ 
+              padding: '14px 32px',
+              borderRadius: 10,
+              border: `1px solid ${colors.champagne}`,
+              backgroundColor: 'transparent',
+              color: colors.champagne,
+              fontSize: 13,
+              fontWeight: 500,
+              letterSpacing: 2,
+              cursor: 'pointer'
+            }}
+          >REÎNCEARCĂ</button>
         </div>
       </div>
     )
