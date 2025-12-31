@@ -407,12 +407,12 @@ export default function SmartMenuPage() {
     // Menu items with card style - paddingTop compensates for fixed header
     menu: { 
       padding: '16px 16px', 
-      paddingTop: 135,  // Height of fixed header (headerTop + categories)
+      paddingTop: 155,  // Height of fixed header (headerTop + categories) + extra space
       paddingBottom: 140
     },
     // Extra padding when test/offline banner is shown
     menuWithBanner: {
-      paddingTop: 175  // 135 + 40 for banner
+      paddingTop: 195  // 155 + 40 for banner
     },
     menuItem: { 
       backgroundColor: colors.onyx,
