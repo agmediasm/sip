@@ -4,8 +4,30 @@ import { useRouter } from 'next/router'
 import { supabase, resolveTableForOrder, getCategories, getEventMenu, createOrder, createOrderItems, getTableOrders } from '../../../lib/supabase'
 
 const colors = {
-  noir: '#08080a', onyx: '#1a1a1c', champagne: '#d4af37', platinum: '#e5e4e2', ivory: '#fffff0',
-  border: 'rgba(255,255,255,0.15)', textMuted: 'rgba(255,255,255,0.65)', success: '#22c55e', error: '#ef4444', warning: '#f59e0b'
+  // Dark luxury palette
+  noir: '#0a0a0c',
+  onyx: '#131316', 
+  charcoal: '#1c1c20',
+  slate: '#252529',
+  champagne: '#d4af37',
+  champagneLight: '#e8c964',
+  champagneDark: '#b8942d',
+  gold: '#ffd700',
+  ivory: '#faf9f6',
+  cream: '#f5f5dc',
+  platinum: '#e5e4e2',
+  border: 'rgba(255,255,255,0.08)',
+  borderLight: 'rgba(255,255,255,0.12)',
+  textPrimary: 'rgba(255,255,255,0.95)',
+  textSecondary: 'rgba(255,255,255,0.75)',
+  textMuted: 'rgba(255,255,255,0.5)',
+  success: '#10b981',
+  successDark: '#059669',
+  error: '#ef4444',
+  warning: '#f59e0b',
+  // Gradients
+  glowChampagne: 'rgba(212, 175, 55, 0.15)',
+  glowGold: 'rgba(255, 215, 0, 0.1)'
 }
 
 const CART_STORAGE_KEY = 'sip_cart'
@@ -306,28 +328,157 @@ export default function SmartMenuPage() {
     return `${m} minute`
   }
 
-  // Styles
+  // Premium Dark Luxury Styles
   const s = {
-    container: { minHeight: '100vh', backgroundColor: colors.noir, color: colors.ivory, fontFamily: "'Helvetica Neue', sans-serif", fontWeight: '300' },
-    centered: { minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center' },
+    container: { 
+      minHeight: '100vh', 
+      backgroundColor: colors.noir, 
+      color: colors.ivory, 
+      fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif", 
+      fontWeight: '300',
+      WebkitFontSmoothing: 'antialiased'
+    },
+    centered: { 
+      minHeight: '100vh', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      padding: 32, 
+      textAlign: 'center' 
+    },
     logo: { fontSize: 48, fontWeight: 300, letterSpacing: 20, color: colors.champagne, marginBottom: 24 },
     title: { fontSize: 24, fontWeight: 400, marginBottom: 12, color: colors.ivory },
     subtitle: { fontSize: 14, color: colors.textMuted, marginBottom: 24, lineHeight: 1.6 },
     badge: { display: 'inline-block', padding: '8px 16px', backgroundColor: `${colors.champagne}20`, border: `1px solid ${colors.champagne}`, color: colors.champagne, fontSize: 12, letterSpacing: 2, marginBottom: 24 },
-    btn: { padding: '16px 32px', border: 'none', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', cursor: 'pointer', borderRadius: 4 },
+    btn: { padding: '16px 32px', border: 'none', fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', cursor: 'pointer', borderRadius: 8, transition: 'all 0.3s ease' },
     btnPrimary: { backgroundColor: colors.champagne, color: colors.noir },
     btnOutline: { backgroundColor: 'transparent', border: `1px solid ${colors.champagne}`, color: colors.champagne },
-    header: { position: 'sticky', top: 0, zIndex: 40, backgroundColor: colors.noir, borderBottom: `1px solid ${colors.border}` },
-    headerTop: { padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-    categories: { padding: '0 16px 16px', overflowX: 'auto', display: 'flex', gap: 0, WebkitOverflowScrolling: 'touch' },
-    catBtn: { padding: '12px 20px', border: 'none', borderBottom: '2px solid transparent', backgroundColor: 'transparent', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', whiteSpace: 'nowrap', cursor: 'pointer' },
-    menu: { padding: 16, paddingBottom: 140 },
-    menuItem: { borderBottom: `1px solid ${colors.border}`, padding: '20px 0' },
-    modal: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 50, display: 'flex', alignItems: 'flex-end' },
-    cartModal: { backgroundColor: colors.onyx, width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderTopLeftRadius: 16, borderTopRightRadius: 16 },
-    successModal: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 },
-    offlineBanner: { position: 'fixed', top: 0, left: 0, right: 0, padding: '8px 16px', backgroundColor: colors.warning, color: colors.noir, fontSize: 12, textAlign: 'center', zIndex: 100, fontWeight: 500 },
-    testBanner: { position: 'fixed', top: 0, left: 0, right: 0, padding: '8px 16px', backgroundColor: colors.champagne, color: colors.noir, fontSize: 11, textAlign: 'center', zIndex: 100, letterSpacing: 2 }
+    
+    // Premium Header with blur
+    header: { 
+      position: 'sticky', 
+      top: 0, 
+      zIndex: 40, 
+      backgroundColor: 'rgba(10, 10, 12, 0.85)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      borderBottom: `1px solid ${colors.border}`
+    },
+    headerTop: { 
+      padding: '16px 20px', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'space-between' 
+    },
+    
+    // Categories with pill style
+    categories: { 
+      padding: '8px 16px 16px', 
+      overflowX: 'auto', 
+      display: 'flex', 
+      gap: 8, 
+      WebkitOverflowScrolling: 'touch',
+      scrollbarWidth: 'none',
+      msOverflowStyle: 'none'
+    },
+    catBtn: { 
+      padding: '10px 18px', 
+      border: `1px solid ${colors.border}`,
+      borderRadius: 24,
+      backgroundColor: 'transparent', 
+      fontSize: 11, 
+      letterSpacing: 1.5, 
+      textTransform: 'uppercase', 
+      whiteSpace: 'nowrap', 
+      cursor: 'pointer',
+      transition: 'all 0.3s ease'
+    },
+    catBtnActive: {
+      backgroundColor: colors.champagne,
+      borderColor: colors.champagne,
+      color: colors.noir,
+      boxShadow: `0 0 20px ${colors.glowChampagne}`
+    },
+    
+    // Menu items with card style
+    menu: { 
+      padding: '12px 16px', 
+      paddingBottom: 140 
+    },
+    menuItem: { 
+      backgroundColor: colors.onyx,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 12,
+      border: `1px solid ${colors.border}`,
+      transition: 'all 0.3s ease',
+      position: 'relative',
+      overflow: 'hidden'
+    },
+    
+    // Cart modal with glassmorphism
+    modal: { 
+      position: 'fixed', 
+      inset: 0, 
+      backgroundColor: 'rgba(0,0,0,0.8)', 
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      zIndex: 50, 
+      display: 'flex', 
+      alignItems: 'flex-end' 
+    },
+    cartModal: { 
+      backgroundColor: colors.onyx, 
+      width: '100%', 
+      maxHeight: '85vh', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      borderTopLeftRadius: 24, 
+      borderTopRightRadius: 24,
+      border: `1px solid ${colors.borderLight}`,
+      borderBottom: 'none',
+      boxShadow: '0 -10px 40px rgba(0,0,0,0.5)'
+    },
+    successModal: { 
+      position: 'fixed', 
+      inset: 0, 
+      backgroundColor: 'rgba(0,0,0,0.95)', 
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      zIndex: 60, 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      padding: 32 
+    },
+    offlineBanner: { 
+      position: 'fixed', 
+      top: 0, 
+      left: 0, 
+      right: 0, 
+      padding: '10px 16px', 
+      backgroundColor: colors.warning, 
+      color: colors.noir, 
+      fontSize: 12, 
+      textAlign: 'center', 
+      zIndex: 100, 
+      fontWeight: 500 
+    },
+    testBanner: { 
+      position: 'fixed', 
+      top: 0, 
+      left: 0, 
+      right: 0, 
+      padding: '10px 16px', 
+      background: `linear-gradient(90deg, ${colors.champagneDark}, ${colors.champagne}, ${colors.champagneDark})`,
+      color: colors.noir, 
+      fontSize: 11, 
+      textAlign: 'center', 
+      zIndex: 100, 
+      letterSpacing: 2,
+      fontWeight: 500
+    }
   }
 
   // ============ RENDER SCREENS ============
@@ -753,35 +904,109 @@ export default function SmartMenuPage() {
         </div>
       )}
 
-      {/* Header */}
-      <header style={{ ...s.header, top: isTestMode || !isOnline ? 32 : 0 }}>
+      {/* Premium Header */}
+      <header style={{ ...s.header, top: isTestMode || !isOnline ? 40 : 0 }}>
         <div style={s.headerTop}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 16, fontWeight: 300, letterSpacing: 6, color: colors.champagne }}>S I P</span>
-            <span style={{ width: 1, height: 20, backgroundColor: colors.border }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ 
+              fontSize: 18, 
+              fontWeight: 300, 
+              letterSpacing: 8, 
+              color: colors.champagne,
+              textShadow: `0 0 20px ${colors.glowChampagne}`
+            }}>S I P</div>
+            <div style={{ 
+              width: 1, 
+              height: 24, 
+              background: `linear-gradient(180deg, transparent, ${colors.borderLight}, transparent)` 
+            }} />
             <div>
-              <div style={{ fontSize: 12, letterSpacing: 2, color: colors.platinum }}>{table?.table_number}</div>
-              <div style={{ fontSize: 9, color: colors.textMuted }}>{event?.name}</div>
+              <div style={{ 
+                fontSize: 14, 
+                fontWeight: 500, 
+                letterSpacing: 3, 
+                color: colors.textPrimary,
+                marginBottom: 2
+              }}>{table?.table_number}</div>
+              <div style={{ 
+                fontSize: 10, 
+                letterSpacing: 1,
+                color: colors.textMuted,
+                textTransform: 'uppercase'
+              }}>{event?.name}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setShowHistory(true)} style={{ padding: 12, border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: colors.platinum, fontSize: 14, cursor: 'pointer' }}>📋</button>
-            <button onClick={() => setShowCart(true)} style={{ position: 'relative', padding: 12, border: `1px solid ${colors.champagne}`, backgroundColor: colors.champagne, color: colors.noir, cursor: 'pointer' }}>
-              🛒 {cartCount > 0 && <span style={{ position: 'absolute', top: -8, right: -8, width: 20, height: 20, backgroundColor: colors.noir, color: colors.champagne, border: `1px solid ${colors.champagne}`, borderRadius: '50%', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cartCount}</span>}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button 
+              onClick={() => setShowHistory(true)} 
+              style={{ 
+                width: 44, 
+                height: 44, 
+                borderRadius: 12,
+                border: `1px solid ${colors.border}`, 
+                backgroundColor: 'rgba(255,255,255,0.03)', 
+                color: colors.textSecondary, 
+                fontSize: 16, 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s ease'
+              }}
+            >📋</button>
+            <button 
+              onClick={() => setShowCart(true)} 
+              style={{ 
+                position: 'relative', 
+                width: 44, 
+                height: 44, 
+                borderRadius: 12,
+                border: 'none', 
+                background: `linear-gradient(135deg, ${colors.champagne}, ${colors.champagneDark})`,
+                color: colors.noir, 
+                fontSize: 16,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `0 4px 20px ${colors.glowChampagne}`,
+                transition: 'all 0.3s ease'
+              }}
+            >
+              🛒 
+              {cartCount > 0 && (
+                <span style={{ 
+                  position: 'absolute', 
+                  top: -6, 
+                  right: -6, 
+                  minWidth: 20, 
+                  height: 20, 
+                  padding: '0 6px',
+                  backgroundColor: colors.noir, 
+                  color: colors.champagne, 
+                  border: `2px solid ${colors.champagne}`, 
+                  borderRadius: 10, 
+                  fontSize: 11, 
+                  fontWeight: 600,
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center' 
+                }}>{cartCount}</span>
+              )}
             </button>
           </div>
         </div>
         
-        {/* Categories */}
-        <div style={s.categories}>
+        {/* Premium Categories */}
+        <div style={s.categories} className="hide-scrollbar">
           {categories.map(cat => (
             <button 
               key={cat.id} 
               onClick={() => setSelectedCat(cat.slug)} 
               style={{ 
                 ...s.catBtn, 
-                color: selectedCat === cat.slug ? colors.champagne : colors.textMuted, 
-                borderBottomColor: selectedCat === cat.slug ? colors.champagne : 'transparent' 
+                ...(selectedCat === cat.slug ? s.catBtnActive : {}),
+                color: selectedCat === cat.slug ? colors.noir : colors.textMuted
               }}
             >
               {cat.name}
@@ -790,10 +1015,16 @@ export default function SmartMenuPage() {
         </div>
       </header>
 
-      {/* Menu items */}
+      {/* Premium Menu Items */}
       <main style={s.menu}>
         {filteredItems.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 48, color: colors.textMuted }}>
+          <div style={{ 
+            textAlign: 'center', 
+            padding: 64, 
+            color: colors.textMuted,
+            fontSize: 14,
+            letterSpacing: 1
+          }}>
             Niciun produs în această categorie
           </div>
         )}
@@ -801,36 +1032,177 @@ export default function SmartMenuPage() {
           const price = getPrice(item)
           const inCart = cart.find(c => c.id === item.id)
           return (
-            <div key={item.id} style={s.menuItem}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 400, letterSpacing: 1, marginBottom: 4 }}>
+            <div 
+              key={item.id} 
+              style={{
+                ...s.menuItem,
+                ...(inCart ? { 
+                  borderColor: colors.champagne,
+                  boxShadow: `0 0 30px ${colors.glowChampagne}, inset 0 0 30px ${colors.glowGold}`
+                } : {})
+              }}
+              className="menu-item-hover"
+            >
+              {/* Subtle gradient overlay */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '40%',
+                height: '100%',
+                background: `linear-gradient(90deg, transparent, ${colors.glowGold})`,
+                opacity: 0.3,
+                pointerEvents: 'none'
+              }} />
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
+                <div style={{ flex: 1, paddingRight: 16 }}>
+                  {/* Product Name */}
+                  <div style={{ 
+                    fontSize: 16, 
+                    fontWeight: 500, 
+                    letterSpacing: 0.5, 
+                    marginBottom: 6,
+                    color: colors.textPrimary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 8
+                  }}>
                     {item.name}
                     {item.badge && (
                       <span style={{ 
-                        fontSize: 8, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase',
-                        border: `1px solid ${item.badge === 'popular' ? colors.error : item.badge === 'premium' ? colors.champagne : colors.success}`,
-                        color: item.badge === 'popular' ? colors.error : item.badge === 'premium' ? colors.champagne : colors.success
+                        fontSize: 9, 
+                        padding: '3px 8px', 
+                        borderRadius: 4,
+                        fontWeight: 600,
+                        letterSpacing: 0.5,
+                        textTransform: 'uppercase',
+                        backgroundColor: item.badge === 'popular' ? `${colors.error}20` : item.badge === 'premium' ? `${colors.champagne}20` : `${colors.success}20`,
+                        color: item.badge === 'popular' ? colors.error : item.badge === 'premium' ? colors.champagne : colors.success,
+                        border: `1px solid ${item.badge === 'popular' ? colors.error : item.badge === 'premium' ? colors.champagne : colors.success}30`
                       }}>{item.badge}</span>
                     )}
                     {item.is_featured && (
-                      <span style={{ fontSize: 8, padding: '2px 6px', marginLeft: 4, backgroundColor: colors.champagne, color: colors.noir }}>⭐</span>
+                      <span style={{ 
+                        fontSize: 9, 
+                        padding: '3px 8px', 
+                        borderRadius: 4,
+                        background: `linear-gradient(135deg, ${colors.champagne}, ${colors.gold})`,
+                        color: colors.noir,
+                        fontWeight: 600
+                      }}>⭐ FEATURED</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: colors.textMuted }}>{item.description}</div>
+                  {/* Description */}
+                  {item.description && (
+                    <div style={{ 
+                      fontSize: 13, 
+                      color: colors.textMuted,
+                      lineHeight: 1.5,
+                      maxWidth: '90%'
+                    }}>{item.description}</div>
+                  )}
                 </div>
-                <div style={{ textAlign: 'right', marginLeft: 16 }}>
-                  <div style={{ fontSize: 15, color: colors.champagne, marginBottom: 8 }}>
-                    {price} <span style={{ fontSize: 10, color: colors.textMuted }}>LEI</span>
+                
+                {/* Price and Add Button */}
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'flex-end',
+                  gap: 12
+                }}>
+                  {/* Price */}
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ 
+                      fontSize: 20, 
+                      fontWeight: 600,
+                      color: colors.champagne,
+                      textShadow: `0 0 20px ${colors.glowChampagne}`
+                    }}>{price}</span>
+                    <span style={{ 
+                      fontSize: 11, 
+                      color: colors.textMuted,
+                      marginLeft: 4,
+                      fontWeight: 400
+                    }}>LEI</span>
                   </div>
+                  
+                  {/* Cart Controls */}
                   {inCart ? (
-                    <div style={{ display: 'flex', border: `1px solid ${colors.champagne}` }}>
-                      <button onClick={() => removeFromCart(item.id)} style={{ width: 32, height: 32, border: 'none', backgroundColor: 'transparent', color: colors.champagne, cursor: 'pointer', fontSize: 16 }}>−</button>
-                      <span style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.champagne, fontWeight: 500 }}>{inCart.qty}</span>
-                      <button onClick={() => addToCart(item)} style={{ width: 32, height: 32, border: 'none', backgroundColor: 'transparent', color: colors.champagne, cursor: 'pointer', fontSize: 16 }}>+</button>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      borderRadius: 10,
+                      overflow: 'hidden',
+                      border: `1px solid ${colors.champagne}`,
+                      background: `linear-gradient(135deg, ${colors.charcoal}, ${colors.onyx})`
+                    }}>
+                      <button 
+                        onClick={() => removeFromCart(item.id)} 
+                        style={{ 
+                          width: 38, 
+                          height: 38, 
+                          border: 'none', 
+                          backgroundColor: 'transparent', 
+                          color: colors.champagne, 
+                          cursor: 'pointer', 
+                          fontSize: 18,
+                          fontWeight: 300,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >−</button>
+                      <span style={{ 
+                        width: 36, 
+                        height: 38, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: colors.champagne, 
+                        fontWeight: 600,
+                        fontSize: 15,
+                        borderLeft: `1px solid ${colors.border}`,
+                        borderRight: `1px solid ${colors.border}`
+                      }}>{inCart.qty}</span>
+                      <button 
+                        onClick={() => addToCart(item)} 
+                        style={{ 
+                          width: 38, 
+                          height: 38, 
+                          border: 'none', 
+                          backgroundColor: 'transparent', 
+                          color: colors.champagne, 
+                          cursor: 'pointer', 
+                          fontSize: 18,
+                          fontWeight: 300,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >+</button>
                     </div>
                   ) : (
-                    <button onClick={() => addToCart(item)} style={{ padding: '8px 16px', border: `1px solid ${colors.champagne}`, backgroundColor: 'transparent', color: colors.champagne, fontSize: 11, letterSpacing: 1, cursor: 'pointer' }}>+ ADAUGĂ</button>
+                    <button 
+                      onClick={() => addToCart(item)} 
+                      style={{ 
+                        padding: '10px 20px', 
+                        borderRadius: 10,
+                        border: `1px solid ${colors.champagne}40`,
+                        background: `linear-gradient(135deg, ${colors.charcoal}, ${colors.onyx})`,
+                        color: colors.champagne, 
+                        fontSize: 11, 
+                        fontWeight: 500,
+                        letterSpacing: 1, 
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        textTransform: 'uppercase'
+                      }}
+                      className="add-btn-hover"
+                    >+ Adaugă</button>
                   )}
                 </div>
               </div>
@@ -839,56 +1211,300 @@ export default function SmartMenuPage() {
         })}
       </main>
 
-      {/* Floating cart button */}
+      {/* Premium Floating Cart Button */}
       {cartCount > 0 && !showCart && (
-        <div style={{ position: 'fixed', bottom: 16, left: 16, right: 16, zIndex: 30 }}>
-          <button onClick={() => setShowCart(true)} style={{ width: '100%', padding: 16, backgroundColor: colors.champagne, color: colors.noir, border: 'none', fontSize: 14, fontWeight: 500, letterSpacing: 2, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>🛒 {cartCount} {cartCount === 1 ? 'produs' : 'produse'}</span>
-            <span>{cartTotal} LEI →</span>
+        <div style={{ 
+          position: 'fixed', 
+          bottom: 24, 
+          left: 20, 
+          right: 20, 
+          zIndex: 30 
+        }}>
+          <button 
+            onClick={() => setShowCart(true)} 
+            style={{ 
+              width: '100%', 
+              padding: '18px 24px', 
+              background: `linear-gradient(135deg, ${colors.champagne}, ${colors.champagneDark})`,
+              color: colors.noir, 
+              border: 'none', 
+              borderRadius: 16,
+              fontSize: 14, 
+              fontWeight: 600, 
+              letterSpacing: 1, 
+              cursor: 'pointer', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              boxShadow: `0 8px 32px rgba(212, 175, 55, 0.4), 0 0 0 1px rgba(255,255,255,0.1) inset`,
+              transition: 'all 0.3s ease'
+            }}
+            className="cart-btn-pulse"
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>🛒</span>
+              <span>{cartCount} {cartCount === 1 ? 'produs' : 'produse'}</span>
+            </span>
+            <span style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 8,
+              fontWeight: 700
+            }}>
+              {cartTotal} LEI
+              <span style={{ 
+                width: 24, 
+                height: 24, 
+                borderRadius: '50%', 
+                backgroundColor: 'rgba(0,0,0,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12
+              }}>→</span>
+            </span>
           </button>
         </div>
       )}
 
-      {/* Cart Modal */}
+      {/* Premium Cart Modal */}
       {showCart && (
         <div style={s.modal} onClick={() => setShowCart(false)}>
           <div style={s.cartModal} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: 16, borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 16, fontWeight: 500, letterSpacing: 2 }}>COȘUL TĂU</span>
-              <button onClick={() => setShowCart(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 24, cursor: 'pointer' }}>×</button>
+            {/* Cart Header */}
+            <div style={{ 
+              padding: '20px 24px', 
+              borderBottom: `1px solid ${colors.border}`, 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              background: `linear-gradient(180deg, ${colors.charcoal}, ${colors.onyx})`
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 20 }}>🛒</span>
+                <span style={{ 
+                  fontSize: 16, 
+                  fontWeight: 600, 
+                  letterSpacing: 3,
+                  color: colors.textPrimary
+                }}>COȘUL TĂU</span>
+              </div>
+              <button 
+                onClick={() => setShowCart(false)} 
+                style={{ 
+                  width: 36, 
+                  height: 36,
+                  borderRadius: 10,
+                  background: 'rgba(255,255,255,0.05)', 
+                  border: `1px solid ${colors.border}`, 
+                  color: colors.textMuted, 
+                  fontSize: 18, 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+              >×</button>
             </div>
             
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+            {/* Cart Items */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
               {cart.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 48, color: colors.textMuted }}>Coșul e gol</div>
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: 64, 
+                  color: colors.textMuted,
+                  fontSize: 14,
+                  letterSpacing: 1
+                }}>
+                  <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>🛒</div>
+                  Coșul e gol
+                </div>
               ) : (
                 cart.map(item => (
-                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: `1px solid ${colors.border}` }}>
+                  <div 
+                    key={item.id} 
+                    style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      padding: 16,
+                      marginBottom: 10,
+                      backgroundColor: colors.charcoal,
+                      borderRadius: 12,
+                      border: `1px solid ${colors.border}`
+                    }}
+                  >
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 400 }}>{item.name}</div>
-                      <div style={{ fontSize: 12, color: colors.textMuted }}>{item.price} LEI × {item.qty}</div>
+                      <div style={{ 
+                        fontWeight: 500,
+                        fontSize: 15,
+                        color: colors.textPrimary,
+                        marginBottom: 4
+                      }}>{item.name}</div>
+                      <div style={{ 
+                        fontSize: 13, 
+                        color: colors.textMuted 
+                      }}>{item.price} LEI × {item.qty}</div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ color: colors.champagne, fontWeight: 500 }}>{item.price * item.qty} LEI</span>
-                      <button onClick={() => removeFromCart(item.id)} style={{ width: 28, height: 28, border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: colors.textMuted, cursor: 'pointer' }}>−</button>
-                      <button onClick={() => addToCart(item)} style={{ width: 28, height: 28, border: `1px solid ${colors.champagne}`, backgroundColor: 'transparent', color: colors.champagne, cursor: 'pointer' }}>+</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ 
+                        color: colors.champagne, 
+                        fontWeight: 600,
+                        fontSize: 16,
+                        minWidth: 60,
+                        textAlign: 'right'
+                      }}>{item.price * item.qty} LEI</span>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        border: `1px solid ${colors.border}`
+                      }}>
+                        <button 
+                          onClick={() => removeFromCart(item.id)} 
+                          style={{ 
+                            width: 34, 
+                            height: 34, 
+                            border: 'none',
+                            borderRight: `1px solid ${colors.border}`, 
+                            backgroundColor: 'transparent', 
+                            color: colors.textMuted, 
+                            cursor: 'pointer',
+                            fontSize: 16,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >−</button>
+                        <button 
+                          onClick={() => addToCart(item)} 
+                          style={{ 
+                            width: 34, 
+                            height: 34, 
+                            border: 'none', 
+                            backgroundColor: 'transparent', 
+                            color: colors.champagne, 
+                            cursor: 'pointer',
+                            fontSize: 16,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >+</button>
+                      </div>
                     </div>
                   </div>
                 ))
               )}
             </div>
             
+            {/* Cart Footer */}
             {cart.length > 0 && (
-              <div style={{ padding: 16, borderTop: `1px solid ${colors.border}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <span style={{ fontSize: 16, fontWeight: 500 }}>TOTAL</span>
-                  <span style={{ fontSize: 20, fontWeight: 600, color: colors.champagne }}>{cartTotal} LEI</span>
+              <div style={{ 
+                padding: '20px 24px', 
+                paddingBottom: 32,
+                borderTop: `1px solid ${colors.border}`,
+                background: `linear-gradient(180deg, ${colors.onyx}, ${colors.charcoal})`
+              }}>
+                {/* Total */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: 20,
+                  padding: 16,
+                  backgroundColor: 'rgba(212, 175, 55, 0.08)',
+                  borderRadius: 12,
+                  border: `1px solid ${colors.champagne}30`
+                }}>
+                  <span style={{ 
+                    fontSize: 14, 
+                    fontWeight: 500,
+                    letterSpacing: 2,
+                    color: colors.textSecondary
+                  }}>TOTAL</span>
+                  <span style={{ 
+                    fontSize: 24, 
+                    fontWeight: 700, 
+                    color: colors.champagne,
+                    textShadow: `0 0 20px ${colors.glowChampagne}`
+                  }}>{cartTotal} LEI</span>
                 </div>
-                <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16 }}>Alege metoda de plată:</div>
+                
+                {/* Payment Method */}
+                <div style={{ 
+                  fontSize: 12, 
+                  color: colors.textMuted, 
+                  marginBottom: 16,
+                  textAlign: 'center',
+                  letterSpacing: 1
+                }}>Alege metoda de plată</div>
+                
+                {/* Rate Limit Error */}
+                {rateLimitError && (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    color: colors.warning, 
+                    fontSize: 13, 
+                    padding: 12, 
+                    backgroundColor: `${colors.warning}15`, 
+                    borderRadius: 10,
+                    marginBottom: 16,
+                    border: `1px solid ${colors.warning}30`
+                  }}>⏳ {rateLimitError}</div>
+                )}
+                
+                {/* Payment Buttons */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  {rateLimitError && <div style={{ gridColumn: 'span 2', textAlign: 'center', color: colors.warning, fontSize: 12, padding: 8, backgroundColor: `${colors.warning}20`, borderRadius: 6 }}>⏳ {rateLimitError}</div>}
-                  <button onClick={() => placeOrder('cash')} disabled={isSubmitting || !!rateLimitError} style={{ padding: 16, backgroundColor: colors.success, color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: (isSubmitting || rateLimitError) ? 0.6 : 1 }}>💵 CASH</button>
-                  <button onClick={() => placeOrder('card')} disabled={isSubmitting || !!rateLimitError} style={{ padding: 16, backgroundColor: '#3b82f6', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: (isSubmitting || rateLimitError) ? 0.6 : 1 }}>💳 CARD</button>
+                  <button 
+                    onClick={() => placeOrder('cash')} 
+                    disabled={isSubmitting || !!rateLimitError} 
+                    style={{ 
+                      padding: 18, 
+                      background: `linear-gradient(135deg, ${colors.success}, ${colors.successDark})`,
+                      color: '#fff', 
+                      border: 'none', 
+                      borderRadius: 12,
+                      fontSize: 15, 
+                      fontWeight: 600, 
+                      cursor: 'pointer', 
+                      opacity: (isSubmitting || rateLimitError) ? 0.5 : 1,
+                      boxShadow: `0 4px 20px rgba(16, 185, 129, 0.3)`,
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>💵</span> CASH
+                  </button>
+                  <button 
+                    onClick={() => placeOrder('card')} 
+                    disabled={isSubmitting || !!rateLimitError} 
+                    style={{ 
+                      padding: 18, 
+                      background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                      color: '#fff', 
+                      border: 'none', 
+                      borderRadius: 12,
+                      fontSize: 15, 
+                      fontWeight: 600, 
+                      cursor: 'pointer', 
+                      opacity: (isSubmitting || rateLimitError) ? 0.5 : 1,
+                      boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>💳</span> CARD
+                  </button>
                 </div>
               </div>
             )}
@@ -896,28 +1512,84 @@ export default function SmartMenuPage() {
         </div>
       )}
 
-      {/* History Modal */}
+      {/* Premium History Modal */}
       {showHistory && (
         <div style={s.modal} onClick={() => setShowHistory(false)}>
           <div style={s.cartModal} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: 16, borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 16, fontWeight: 500, letterSpacing: 2 }}>ISTORIC COMENZI</span>
-              <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', color: colors.textMuted, fontSize: 24, cursor: 'pointer' }}>×</button>
+            <div style={{ 
+              padding: '20px 24px', 
+              borderBottom: `1px solid ${colors.border}`, 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              background: `linear-gradient(180deg, ${colors.charcoal}, ${colors.onyx})`
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 20 }}>📋</span>
+                <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: 3, color: colors.textPrimary }}>ISTORIC</span>
+              </div>
+              <button 
+                onClick={() => setShowHistory(false)} 
+                style={{ 
+                  width: 36, 
+                  height: 36,
+                  borderRadius: 10,
+                  background: 'rgba(255,255,255,0.05)', 
+                  border: `1px solid ${colors.border}`, 
+                  color: colors.textMuted, 
+                  fontSize: 18, 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >×</button>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
               {orderHistory.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 48, color: colors.textMuted }}>Nicio comandă încă</div>
+                <div style={{ textAlign: 'center', padding: 64, color: colors.textMuted }}>
+                  <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>📋</div>
+                  Nicio comandă încă
+                </div>
               ) : (
                 orderHistory.map(order => (
-                  <div key={order.id} style={{ padding: 16, marginBottom: 12, backgroundColor: colors.noir, border: `1px solid ${colors.border}`, borderRadius: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, color: colors.textMuted }}>{new Date(order.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</span>
-                      <span style={{ fontSize: 12, padding: '2px 8px', backgroundColor: order.payment_status === 'paid' ? colors.success : colors.warning, color: '#fff', borderRadius: 4 }}>{order.payment_status === 'paid' ? 'Plătit' : order.status}</span>
+                  <div 
+                    key={order.id} 
+                    style={{ 
+                      padding: 16, 
+                      marginBottom: 12, 
+                      backgroundColor: colors.charcoal, 
+                      border: `1px solid ${colors.border}`, 
+                      borderRadius: 12 
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <span style={{ fontSize: 13, color: colors.textSecondary }}>{new Date(order.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span style={{ 
+                        fontSize: 11, 
+                        padding: '4px 10px', 
+                        backgroundColor: order.payment_status === 'paid' ? `${colors.success}20` : `${colors.warning}20`, 
+                        color: order.payment_status === 'paid' ? colors.success : colors.warning, 
+                        borderRadius: 6,
+                        fontWeight: 500,
+                        letterSpacing: 0.5
+                      }}>{order.payment_status === 'paid' ? '✓ Plătit' : order.status}</span>
                     </div>
                     {order.order_items?.map((item, idx) => (
-                      <div key={idx} style={{ fontSize: 13, color: colors.ivory, marginBottom: 4 }}>{item.quantity}× {item.name}</div>
+                      <div key={idx} style={{ fontSize: 14, color: colors.textPrimary, marginBottom: 6, display: 'flex', gap: 8 }}>
+                        <span style={{ color: colors.champagne, fontWeight: 500 }}>{item.quantity}×</span>
+                        <span>{item.name}</span>
+                      </div>
                     ))}
-                    <div style={{ marginTop: 8, textAlign: 'right', color: colors.champagne, fontWeight: 500 }}>{order.total} LEI</div>
+                    <div style={{ 
+                      marginTop: 12, 
+                      paddingTop: 12,
+                      borderTop: `1px solid ${colors.border}`,
+                      textAlign: 'right', 
+                      color: colors.champagne, 
+                      fontWeight: 600,
+                      fontSize: 16
+                    }}>{order.total} LEI</div>
                   </div>
                 ))
               )}
@@ -925,6 +1597,71 @@ export default function SmartMenuPage() {
           </div>
         </div>
       )}
+
+      {/* Premium CSS Animations */}
+      <style jsx global>{`
+        /* Hide scrollbar for categories */
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        
+        /* Cart button pulse animation */
+        @keyframes cartPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.02); }
+        }
+        .cart-btn-pulse {
+          animation: cartPulse 2s ease-in-out infinite;
+        }
+        .cart-btn-pulse:active {
+          animation: none;
+          transform: scale(0.98);
+        }
+        
+        /* Menu item hover effect */
+        .menu-item-hover {
+          transition: all 0.3s ease;
+        }
+        @media (hover: hover) {
+          .menu-item-hover:hover {
+            border-color: rgba(212, 175, 55, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+          }
+        }
+        
+        /* Add button hover */
+        @media (hover: hover) {
+          .add-btn-hover:hover {
+            background: linear-gradient(135deg, #d4af37, #b8942d) !important;
+            color: #0a0a0c !important;
+            border-color: #d4af37 !important;
+          }
+        }
+        
+        /* Smooth scrolling */
+        html {
+          scroll-behavior: smooth;
+        }
+        
+        /* Font import */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        /* Global body styles */
+        body {
+          -webkit-tap-highlight-color: transparent;
+          overscroll-behavior: none;
+        }
+        
+        /* Active states for touch */
+        button:active {
+          transform: scale(0.97);
+        }
+      `}</style>
     </div>
   )
 }
