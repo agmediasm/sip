@@ -337,9 +337,7 @@ export default function SmartMenuPage() {
       fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif", 
       fontWeight: '300',
       WebkitFontSmoothing: 'antialiased',
-      overflowY: 'auto',
-      overflowX: 'hidden',
-      WebkitOverflowScrolling: 'touch'
+      position: 'relative'
     },
     centered: { 
       minHeight: '100vh', 
@@ -1774,22 +1772,23 @@ export default function SmartMenuPage() {
           }
         }
         
-        /* Smooth scrolling */
-        html, body {
-          scroll-behavior: smooth;
+        /* Smooth scrolling + disable pull-to-refresh */
+        html {
+          overflow: hidden;
+          height: 100%;
+        }
+        
+        body {
+          height: 100%;
+          overflow-y: scroll;
           overflow-x: hidden;
-          overflow-y: auto;
           -webkit-overflow-scrolling: touch;
+          overscroll-behavior-y: contain;
+          -webkit-tap-highlight-color: transparent;
         }
         
         /* Font import */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        
-        /* Global body styles */
-        body {
-          -webkit-tap-highlight-color: transparent;
-          min-height: 100vh;
-        }
         
         /* Active states for touch */
         button:active {
