@@ -9,6 +9,7 @@ const colors = { noir: '#08080a', onyx: '#141416', champagne: '#d4af37', platinu
 export default function StaffDashboard() {
   const [waiter, setWaiter] = useState(null)
   const [phoneInput, setPhoneInput] = useState('')
+  const [pinInput, setPinInput] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loading, setLoading] = useState(false)
   const [events, setEvents] = useState([])
@@ -111,12 +112,28 @@ export default function StaffDashboard() {
   }
 
   const handleLogin = async () => {
-    if (!phoneInput) return
+    if (!phoneInput || !pinInput) {
+      setLoginError('Introdu telefonul și PIN-ul')
+      return
+    }
     setLoginError('')
     const { data, error } = await loginWaiter(phoneInput.replace(/\s/g, ''))
-    if (error || !data) { setLoginError('Număr invalid sau cont inactiv'); return }
+    if (error || !data) { 
+      setLoginError('Număr invalid sau cont inactiv')
+      return 
+    }
+    // Check PIN
+    if (data.pin && data.pin !== pinInput) {
+      setLoginError('PIN incorect')
+      return
+    }
+    // If no PIN set, allow login but warn
+    if (!data.pin) {
+      console.warn('Waiter has no PIN set')
+    }
     setWaiter(data)
     localStorage.setItem('sip_waiter', JSON.stringify(data))
+    setPinInput('')
   }
 
   const handleLogout = () => { setWaiter(null); localStorage.removeItem('sip_waiter'); setOrders([]); setSelectedEvent(null) }
@@ -547,7 +564,14 @@ export default function StaffDashboard() {
         <div style={{ fontSize: 48, fontWeight: 300, letterSpacing: 16, color: colors.champagne, marginBottom: 8 }}>S I P</div>
         <div style={{ fontSize: 11, letterSpacing: 4, color: colors.textMuted, marginBottom: 48 }}>STAFF LOGIN</div>
         <div style={{ width: '100%', maxWidth: 300 }}>
-          <input type="tel" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} placeholder="07XX XXX XXX" style={s.input} onKeyPress={e => e.key === 'Enter' && handleLogin()} />
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 10, letterSpacing: 2, color: colors.textMuted, display: 'block', marginBottom: 8 }}>TELEFON</label>
+            <input type="tel" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} placeholder="07XX XXX XXX" style={s.input} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 10, letterSpacing: 2, color: colors.textMuted, display: 'block', marginBottom: 8 }}>PIN</label>
+            <input type="password" inputMode="numeric" value={pinInput} onChange={e => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" maxLength={4} style={{ ...s.input, textAlign: 'center', letterSpacing: 8, fontSize: 20 }} onKeyPress={e => e.key === 'Enter' && handleLogin()} />
+          </div>
           {loginError && <div style={{ color: colors.error, fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{loginError}</div>}
           <button onClick={handleLogin} style={{ ...s.btn, width: '100%', backgroundColor: colors.champagne, color: colors.noir, padding: 16 }}>Intră</button>
         </div>
