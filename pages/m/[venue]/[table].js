@@ -336,7 +336,10 @@ export default function SmartMenuPage() {
       color: colors.ivory, 
       fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif", 
       fontWeight: '300',
-      WebkitFontSmoothing: 'antialiased'
+      WebkitFontSmoothing: 'antialiased',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      WebkitOverflowScrolling: 'touch'
     },
     centered: { 
       minHeight: '100vh', 
@@ -1644,8 +1647,11 @@ export default function SmartMenuPage() {
         }
         
         /* Smooth scrolling */
-        html {
+        html, body {
           scroll-behavior: smooth;
+          overflow-x: hidden;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
         
         /* Font import */
@@ -1654,12 +1660,18 @@ export default function SmartMenuPage() {
         /* Global body styles */
         body {
           -webkit-tap-highlight-color: transparent;
-          overscroll-behavior: none;
+          min-height: 100vh;
         }
         
         /* Active states for touch */
         button:active {
           transform: scale(0.97);
+        }
+        
+        /* Ensure main container can scroll */
+        #__next {
+          min-height: 100vh;
+          overflow-y: auto;
         }
       `}</style>
     </div>
