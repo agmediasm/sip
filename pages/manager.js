@@ -9,7 +9,12 @@ const TABLE_TYPES = { vip: { label: 'VIP', color: colors.vip }, normal: { label:
 const PRODUCT_TYPES = ['bottle', 'cocktail', 'shot', 'beer', 'wine', 'soft', 'food', 'other']
 const BADGES = ['popular', 'premium', 'new', 'recommended']
 
+const MANAGER_PIN = '1234' // Default PIN - should come from venue settings
+
 export default function ManagerDashboard() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [pinInput, setPinInput] = useState('')
+  const [pinError, setPinError] = useState('')
   const [isDesktop, setIsDesktop] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [events, setEvents] = useState([])
@@ -80,6 +85,29 @@ export default function ManagerDashboard() {
   const [tableSelectMode, setTableSelectMode] = useState(false)
 
   useEffect(() => { const c = () => setIsDesktop(window.innerWidth >= 900); c(); window.addEventListener('resize', c); return () => window.removeEventListener('resize', c) }, [])
+  useEffect(() => { const saved = localStorage.getItem('sip_manager_auth'); if (saved === 'true') setIsAuthenticated(true) }, [])
+  
+  const handleManagerLogin = async () => {
+    if (!pinInput) { setPinError('Introdu PIN-ul'); return }
+    setPinError('')
+    
+    // Check venue PIN from database
+    const { data: venue } = await supabase.from('venues').select('manager_pin').eq('id', VENUE_ID).single()
+    const correctPin = venue?.manager_pin || MANAGER_PIN
+    
+    if (pinInput === correctPin) {
+      setIsAuthenticated(true)
+      localStorage.setItem('sip_manager_auth', 'true')
+      setPinInput('')
+    } else {
+      setPinError('PIN incorect')
+    }
+  }
+  
+  const handleManagerLogout = () => {
+    setIsAuthenticated(false)
+    localStorage.removeItem('sip_manager_auth')
+  }
   useEffect(() => { loadData() }, [])
   useEffect(() => { if (selectedEvent) loadEventData(selectedEvent.id) }, [selectedEvent])
   useEffect(() => { loadAnalytics(); loadLeaderboard() }, [analyticsPeriod, statsEventFilter])
@@ -333,6 +361,46 @@ export default function ManagerDashboard() {
   }
   const TABS = [{ id: 'overview', icon: '📊', label: 'Stats' }, { id: 'events', icon: '📅', label: 'Events' }, { id: 'layout', icon: '🗺️', label: 'Layout' }, { id: 'reservations', icon: '📋', label: 'Rezervări' }, { id: 'menu', icon: '🍸', label: 'Meniu' }, { id: 'qr', icon: '🔗', label: 'QR' }, { id: 'waiters', icon: '👤', label: 'Staff' }, { id: 'customers', icon: '👑', label: 'CRM' }]
 
+  // Login screen for manager
+  if (!isAuthenticated) {
+    return (
+      <div style={{...s.container, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh'}}>
+        <Head><title>S I P - Manager Login</title></Head>
+        <div style={{textAlign: 'center', width: '100%', maxWidth: 320, padding: 24}}>
+          <div style={{fontSize: 48, fontWeight: 300, letterSpacing: 16, color: colors.champagne, marginBottom: 8}}>S I P</div>
+          <div style={{fontSize: 11, letterSpacing: 4, color: colors.textMuted, marginBottom: 48}}>MANAGER</div>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ fontSize: 10, letterSpacing: 2, color: colors.textMuted, display: 'block', marginBottom: 12 }}>PIN ACCES</label>
+            <input 
+              type="password" 
+              inputMode="numeric"
+              value={pinInput} 
+              onChange={e => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))} 
+              placeholder="••••••" 
+              maxLength={6}
+              style={{ 
+                ...s.input, 
+                textAlign: 'center', 
+                letterSpacing: 12, 
+                fontSize: 24,
+                padding: 16
+              }} 
+              onKeyPress={e => e.key === 'Enter' && handleManagerLogin()}
+            />
+          </div>
+          {pinError && <div style={{ color: colors.error, fontSize: 12, marginBottom: 16 }}>{pinError}</div>}
+          <button 
+            onClick={handleManagerLogin} 
+            style={{...s.btn, width: '100%', backgroundColor: colors.champagne, color: colors.noir, padding: 16, fontSize: 13, letterSpacing: 2}}
+          >
+            INTRĂ
+          </button>
+          <Link href="/" style={{ display: 'block', marginTop: 32, fontSize: 11, color: colors.textMuted, textDecoration: 'none' }}>← Înapoi</Link>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) return <div style={{...s.container, display: 'flex', alignItems: 'center', justifyContent: 'center'}}><div style={{textAlign: 'center'}}><div style={{fontSize: 40, fontWeight: 300, letterSpacing: 12, color: colors.champagne}}>S I P</div><div style={{fontSize: 12, color: colors.textMuted, marginTop: 16}}>Loading...</div></div></div>
 
   const curZoneTables = eventTables.filter(t => activeZone === 'front' ? t.zone !== 'back' : t.zone === 'back')
@@ -416,7 +484,7 @@ export default function ManagerDashboard() {
   return (
     <div style={s.container}>
       <Head><title>S I P - Manager</title></Head>
-      <header style={s.header}><div style={s.logo}>S I P</div><Link href="/staff" style={{ fontSize: 12, color: colors.textMuted, textDecoration: 'none' }}>Staff →</Link></header>
+      <header style={s.header}><div style={s.logo}>S I P</div><div style={{ display: 'flex', alignItems: 'center', gap: 16 }}><Link href="/staff" style={{ fontSize: 12, color: colors.textMuted, textDecoration: 'none' }}>Staff →</Link><button onClick={handleManagerLogout} style={{ background: 'none', border: 'none', fontSize: 12, color: colors.error, cursor: 'pointer' }}>Ieși</button></div></header>
       <div style={s.tabs}>{TABS.map(tab => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{...s.tab, color: activeTab === tab.id ? colors.champagne : colors.textMuted, borderColor: activeTab === tab.id ? colors.champagne : 'transparent' }}>{tab.icon} {tab.label}</button>))}</div>
       <div style={s.content}>
         {activeTab === 'overview' && (<>
