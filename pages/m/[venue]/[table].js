@@ -130,8 +130,12 @@ export default function SmartMenuPage() {
     setScreen('loading')
     setStatus('loading')
     
+    console.log('Loading data for:', { venueSlug, tableNumber })
+    
     try {
       const result = await resolveTableForOrder(venueSlug, tableNumber)
+      
+      console.log('Resolve result:', result)
       
       setVenue(result.venue || null)
       setEvent(result.event || null)
@@ -150,6 +154,7 @@ export default function SmartMenuPage() {
         await loadMenuData(result.venue.id, result.event.id, result.table?.id)
         setScreen('welcome')
       } else {
+        console.log('Setting screen to:', result.status)
         setScreen(result.status)
       }
     } catch (error) {
