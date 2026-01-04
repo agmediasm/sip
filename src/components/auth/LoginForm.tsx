@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Button, Input, Card } from '@/components/ui'
-import { colors } from '@/styles/theme'
+import { Card, Input, Button } from '@/components/ui'
+import { colors, borderRadius } from '@/styles/theme'
 import type { LoginCredentials } from '@/types'
 
 interface LoginFormProps {
@@ -8,10 +8,9 @@ interface LoginFormProps {
   error?: string | null
   title?: string
   subtitle?: string
-  showPin?: boolean
 }
 
-export function LoginForm({ onLogin, error, title, subtitle, showPin = false }: LoginFormProps) {
+export function LoginForm({ onLogin, error, title = 'Login', subtitle }: LoginFormProps) {
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
   const [loading, setLoading] = useState(false)
@@ -24,24 +23,23 @@ export function LoginForm({ onLogin, error, title, subtitle, showPin = false }: 
   }
 
   return (
-    <Card variant="default" padding="lg" style={{ width: '100%', maxWidth: '400px' }}>
-      {title && (
-        <h2 style={{ 
-          margin: '0 0 8px', 
-          fontSize: '20px', 
-          fontWeight: 600, 
-          color: colors.ivory,
-          textAlign: 'center'
-        }}>
-          {title}
-        </h2>
-      )}
+    <Card variant="elevated" padding="lg" style={{ width: '100%', maxWidth: '360px' }}>
+      <h2 style={{ 
+        fontSize: '20px', 
+        fontWeight: 600, 
+        color: colors.ivory,
+        marginBottom: '8px',
+        textAlign: 'center',
+      }}>
+        {title}
+      </h2>
+      
       {subtitle && (
         <p style={{ 
-          margin: '0 0 24px', 
           fontSize: '14px', 
           color: colors.textMuted,
-          textAlign: 'center'
+          marginBottom: '24px',
+          textAlign: 'center',
         }}>
           {subtitle}
         </p>
@@ -58,29 +56,34 @@ export function LoginForm({ onLogin, error, title, subtitle, showPin = false }: 
             fullWidth
           />
 
-          {showPin && (
-            <Input
-              label="PIN"
-              type="password"
-              placeholder="****"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              maxLength={4}
-              fullWidth
-            />
-          )}
+          <Input
+            label="PIN"
+            type="password"
+            placeholder="••••"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+            maxLength={6}
+            fullWidth
+          />
 
           {error && (
-            <p style={{ margin: 0, fontSize: '13px', color: colors.error, textAlign: 'center' }}>
+            <div style={{
+              padding: '12px',
+              background: `${colors.error}20`,
+              border: `1px solid ${colors.error}`,
+              borderRadius: borderRadius.sm,
+              color: colors.error,
+              fontSize: '13px',
+              textAlign: 'center',
+            }}>
               {error}
-            </p>
+            </div>
           )}
 
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            fullWidth
+          <Button 
+            type="submit" 
+            variant="primary" 
+            fullWidth 
             loading={loading}
             disabled={!phone}
           >
