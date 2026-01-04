@@ -1,1 +1,6 @@
-// Export components from this folder
+export { OverviewTab } from './OverviewTab'
+export { EventsTab } from './EventsTab'
+export { MenuTab } from './MenuTab'
+export { StaffTab } from './StaffTab'
+export { CRMTab } from './CRMTab'
+export { StatsTab } from './StatsTab'
