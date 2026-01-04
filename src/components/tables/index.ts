@@ -1,1 +1,1 @@
-// Export components from this folder
+export { TableGrid } from './TableGrid'

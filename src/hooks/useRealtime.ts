@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useLogger } from './useLogger'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
-type RealtimeCallback = (payload: unknown) => void
+type RealtimeCallback = (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => void
 
 interface UseRealtimeOptions {
   table: string
@@ -27,14 +28,14 @@ export function useRealtime(
     const channel = supabase
       .channel(channelName)
       .on(
-        'postgres_changes',
+        'postgres_changes' as never,
         {
           event: options.event || '*',
           schema: 'public',
           table: options.table,
           filter: options.filter,
-        },
-        (payload) => {
+        } as never,
+        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
           log('debug', 'system', `Realtime: ${options.table} ${payload.eventType}`)
           callbackRef.current(payload)
         }
