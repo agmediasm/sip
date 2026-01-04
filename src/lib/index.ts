@@ -1,1 +1,2 @@
-// Export components from this folder
+export { supabase, getServerSupabase } from './supabase'
+export * from './api'
