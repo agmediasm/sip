@@ -1,14 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import { publicEnv } from '@/config/env'
 
-// Fallback pentru development/missing env
-const SUPABASE_URL = publicEnv.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const SUPABASE_ANON_KEY = publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
-
-// Warning in development if env vars are missing
-if (typeof window !== 'undefined' && !publicEnv.NEXT_PUBLIC_SUPABASE_URL) {
-  console.warn('⚠️ NEXT_PUBLIC_SUPABASE_URL not set. Make sure environment variables are configured in Vercel.')
-}
+// Direct values - Vercel env vars not loading properly
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://avptbuuimqmfmekpwqvb.supabase.co'
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2cHRidXVpbXFtZm1la3B3cXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzMzMzY2ODYsImV4cCI6MjA0ODkxMjY4Nn0.LBjP4wZ9O4RkHpW_zfLlPcjqSYDzzAT5xprcRbXwoXc'
 
 // Client pentru frontend - folosește ANON KEY (safe)
 export const supabase: SupabaseClient = createClient(
