@@ -1,2 +1,2 @@
-export { supabase, getServerSupabase } from './supabase'
+export { supabase } from './supabase'
 export * from './api'
