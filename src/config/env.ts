@@ -19,23 +19,20 @@ interface ServerEnv extends PublicEnv {
   ADMIN_SECRET_KEY: string
 }
 
-// Validate required env vars exist
-function getEnvVar(key: string, required = true): string {
+// Get env var with fallback (no throw on client)
+function getEnvVar(key: string, fallback = ''): string {
+  // In browser, process.env is replaced at build time
   const value = process.env[key]
-  
-  if (required && !value) {
-    throw new Error(`Missing required environment variable: ${key}`)
-  }
-  
-  return value || ''
+  return value || fallback
 }
 
 // Public env - safe to use in browser
+// These are baked in at BUILD TIME by Next.js
 export const publicEnv: PublicEnv = {
   NEXT_PUBLIC_SUPABASE_URL: getEnvVar('NEXT_PUBLIC_SUPABASE_URL'),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-  NEXT_PUBLIC_APP_URL: getEnvVar('NEXT_PUBLIC_APP_URL', false) || 'https://app.sip-app.ro',
-  NEXT_PUBLIC_ADMIN_URL: getEnvVar('NEXT_PUBLIC_ADMIN_URL', false) || 'https://admin.sip-app.ro',
+  NEXT_PUBLIC_APP_URL: getEnvVar('NEXT_PUBLIC_APP_URL', 'https://app.sip-app.ro'),
+  NEXT_PUBLIC_ADMIN_URL: getEnvVar('NEXT_PUBLIC_ADMIN_URL', 'https://admin.sip-app.ro'),
 }
 
 // Server-only env - NEVER import this in frontend components!
