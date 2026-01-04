@@ -1,45 +1,32 @@
-// Subdomain-based table page
-// URL: intooit.sip-app.ro/VIP1 -> venue=intooit, table=VIP1
-
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import Head from 'next/head'
-import { supabase, resolveTableForOrder, getCategories, getEventMenu, createOrder, createOrderItems, getTableOrders } from '../lib/supabase'
 
 const colors = {
   noir: '#0a0a0c',
-  onyx: '#131316', 
-  charcoal: '#1c1c20',
   champagne: '#d4af37',
-  champagneDark: '#b8942d',
   ivory: '#faf9f6',
-  textPrimary: 'rgba(255,255,255,0.95)',
   textMuted: 'rgba(255,255,255,0.5)',
-  success: '#10b981',
-  glowChampagne: 'rgba(212, 175, 55, 0.15)'
 }
 
 export default function SubdomainTablePage() {
   const router = useRouter()
   const { table: tableNumber } = router.query
-  const [venueSlug, setVenueSlug] = useState(null)
+  const [venueSlug, setVenueSlug] = useState<string | null>(null)
   const [isDetecting, setIsDetecting] = useState(true)
   const [debugInfo, setDebugInfo] = useState('')
 
-  // Detect subdomain on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname
-      let subdomain = null
+      let subdomain: string | null = null
       
-      console.log('Hostname:', hostname)
       setDebugInfo(`Host: ${hostname}`)
       
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
         subdomain = 'testing'
       } else if (hostname.includes('.sip-app.ro')) {
         const parts = hostname.split('.')
-        // intooit.sip-app.ro -> ['intooit', 'sip-app', 'ro']
         if (parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'sip-app') {
           subdomain = parts[0]
         }
@@ -47,7 +34,6 @@ export default function SubdomainTablePage() {
         subdomain = 'testing'
       }
       
-      console.log('Detected subdomain:', subdomain)
       setDebugInfo(prev => prev + ` | Subdomain: ${subdomain}`)
       
       if (subdomain) {
@@ -57,16 +43,12 @@ export default function SubdomainTablePage() {
     }
   }, [])
 
-  // Once we have venueSlug and table, redirect to the proper page
   useEffect(() => {
     if (!isDetecting && venueSlug && tableNumber) {
-      console.log('Redirecting to:', `/m/${venueSlug}/${tableNumber}`)
-      // Use window.location for hard redirect to ensure proper routing
       window.location.href = `/m/${venueSlug}/${tableNumber}`
     }
   }, [isDetecting, venueSlug, tableNumber])
 
-  // Loading state
   if (isDetecting || !tableNumber) {
     return (
       <div style={{ 
@@ -76,7 +58,6 @@ export default function SubdomainTablePage() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: "'Inter', sans-serif"
       }}>
         <Head><title>S I P</title></Head>
         <div style={{ 
@@ -86,16 +67,13 @@ export default function SubdomainTablePage() {
           color: colors.champagne,
           marginBottom: 24
         }}>S I P</div>
-        <div style={{ 
-          fontSize: 12, 
-          color: colors.textMuted,
-          marginTop: 16
-        }}>Se încarcă...</div>
+        <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 16 }}>
+          Se încarcă...
+        </div>
       </div>
     )
   }
 
-  // No subdomain detected - show error
   if (!venueSlug) {
     return (
       <div style={{ 
@@ -105,7 +83,6 @@ export default function SubdomainTablePage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: "'Inter', sans-serif",
         textAlign: 'center',
         padding: 32
       }}>
@@ -118,18 +95,10 @@ export default function SubdomainTablePage() {
             color: colors.champagne, 
             marginBottom: 24 
           }}>S I P</div>
-          <div style={{ 
-            fontSize: 16, 
-            color: colors.textMuted, 
-            marginBottom: 32 
-          }}>
+          <div style={{ fontSize: 16, color: colors.textMuted, marginBottom: 32 }}>
             Accesează meniul prin link-ul primit
           </div>
-          <div style={{ 
-            fontSize: 12, 
-            color: 'rgba(255,255,255,0.3)',
-            marginTop: 24
-          }}>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 24 }}>
             {debugInfo}
           </div>
         </div>
@@ -137,7 +106,6 @@ export default function SubdomainTablePage() {
     )
   }
 
-  // Redirecting...
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -146,7 +114,6 @@ export default function SubdomainTablePage() {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      fontFamily: "'Inter', sans-serif"
     }}>
       <Head><title>S I P - {tableNumber}</title></Head>
       <div style={{ 
@@ -156,10 +123,9 @@ export default function SubdomainTablePage() {
         color: colors.champagne,
         marginBottom: 24
       }}>S I P</div>
-      <div style={{ 
-        fontSize: 14, 
-        color: colors.textMuted 
-      }}>Se deschide meniul...</div>
+      <div style={{ fontSize: 14, color: colors.textMuted }}>
+        Se deschide meniul...
+      </div>
     </div>
   )
 }
