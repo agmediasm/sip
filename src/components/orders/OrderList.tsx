@@ -9,10 +9,16 @@ interface OrderListProps {
   showActions?: boolean
 }
 
-export function OrderList({ orders, onStatusChange, onMarkPaid, onSplitPayment, showActions }: OrderListProps) {
+export function OrderList({ 
+  orders, 
+  onStatusChange, 
+  onMarkPaid,
+  onSplitPayment,
+  showActions 
+}: OrderListProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {orders.map((order) => (
+      {orders.map(order => (
         <OrderCard
           key={order.id}
           order={order}
