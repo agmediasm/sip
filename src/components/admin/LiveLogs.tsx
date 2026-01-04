@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { Card, Button, Badge, Spinner, EmptyState } from '@/components/ui'
-import { Section } from '@/components/layout'
-import { getLogs } from '@/lib/api'
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useRealtime } from '@/hooks/useRealtime'
+import { Card, Button, Spinner, EmptyState } from '@/components/ui'
 import { colors, borderRadius } from '@/styles/theme'
 import type { LogEntry, LogLevel, LogCategory } from '@/types'
 
@@ -12,29 +12,65 @@ interface LiveLogsProps {
 export function LiveLogs({ venueId }: LiveLogsProps) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<{ level?: LogLevel; category?: LogCategory }>({})
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [filter, setFilter] = useState<{
+    level: LogLevel | 'all'
+    category: LogCategory | 'all'
+  }>({ level: 'all', category: 'all' })
+  const [autoScroll, setAutoScroll] = useState(true)
+  const [isPaused, setIsPaused] = useState(false)
+  const logsEndRef = useRef<HTMLDivElement>(null)
 
+  // Load initial logs
   useEffect(() => {
     loadLogs()
-    
-    if (autoRefresh) {
-      const interval = setInterval(loadLogs, 5000) // Refresh every 5s
-      return () => clearInterval(interval)
+  }, [venueId, filter])
+
+  // Realtime subscription
+  useRealtime(
+    { table: 'logs', event: 'INSERT', enabled: !isPaused },
+    (payload) => {
+      const newLog = payload.new as unknown as LogEntry
+      
+      // Check if matches filter
+      if (venueId && newLog.venue_id !== venueId) return
+      if (filter.level !== 'all' && newLog.level !== filter.level) return
+      if (filter.category !== 'all' && newLog.category !== filter.category) return
+
+      setLogs(prev => [...prev.slice(-199), newLog]) // Keep last 200
     }
-  }, [venueId, filter, autoRefresh])
+  )
+
+  // Auto scroll
+  useEffect(() => {
+    if (autoScroll && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [logs, autoScroll])
 
   const loadLogs = async () => {
+    setLoading(true)
     try {
-      const result = await getLogs({
-        venueId: venueId || undefined,
-        level: filter.level,
-        category: filter.category,
-        limit: 100,
-      })
-      if (result.data) {
-        setLogs(result.data)
+      let query = supabase
+        .from('logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (venueId) {
+        query = query.eq('venue_id', venueId)
       }
+
+      if (filter.level !== 'all') {
+        query = query.eq('level', filter.level)
+      }
+
+      if (filter.category !== 'all') {
+        query = query.eq('category', filter.category)
+      }
+
+      const { data } = await query
+
+      setLogs((data || []).reverse())
     } catch (err) {
       console.error('Load logs error:', err)
     } finally {
@@ -42,71 +78,137 @@ export function LiveLogs({ venueId }: LiveLogsProps) {
     }
   }
 
-  const levelColors: Record<LogLevel, string> = {
-    debug: colors.textMuted,
-    info: colors.normal,
-    warn: colors.warning,
-    error: colors.error,
-    critical: colors.error,
+  const clearLogs = () => {
+    setLogs([])
   }
 
-  const levels: LogLevel[] = ['debug', 'info', 'warn', 'error', 'critical']
-  const categories: LogCategory[] = ['auth', 'order', 'payment', 'menu', 'system', 'security', 'performance']
+  const levelConfig: Record<LogLevel, { color: string; icon: string }> = {
+    debug: { color: colors.textMuted, icon: '🔍' },
+    info: { color: colors.success, icon: '✅' },
+    warn: { color: colors.warning, icon: '⚠️' },
+    error: { color: colors.error, icon: '❌' },
+    critical: { color: '#ff0000', icon: '🔴' },
+  }
+
+  const categoryIcons: Record<LogCategory, string> = {
+    auth: '🔐',
+    order: '🛒',
+    payment: '💳',
+    menu: '📋',
+    system: '⚙️',
+    security: '🛡️',
+    performance: '⚡',
+  }
 
   return (
-    <div>
-      <Section title="📋 Live Logs">
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+    <Card variant="default" padding="none" style={{ height: 'calc(100vh - 250px)', display: 'flex', flexDirection: 'column' }}>
+      {/* Toolbar */}
+      <div style={{
+        padding: '12px 16px',
+        borderBottom: `1px solid ${colors.border}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '12px',
+      }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* Level filter */}
           <select
-            value={filter.level || ''}
-            onChange={(e) => setFilter({ ...filter, level: e.target.value as LogLevel || undefined })}
+            value={filter.level}
+            onChange={(e) => setFilter(f => ({ ...f, level: e.target.value as LogLevel | 'all' }))}
             style={{
               padding: '8px 12px',
               background: colors.charcoal,
               border: `1px solid ${colors.border}`,
               borderRadius: borderRadius.sm,
               color: colors.ivory,
-              fontSize: '13px',
+              fontSize: '12px',
             }}
           >
-            <option value="">Toate nivelurile</option>
-            {levels.map(l => (
-              <option key={l} value={l}>{l.toUpperCase()}</option>
-            ))}
+            <option value="all">Toate nivelurile</option>
+            <option value="debug">Debug</option>
+            <option value="info">Info</option>
+            <option value="warn">Warning</option>
+            <option value="error">Error</option>
+            <option value="critical">Critical</option>
           </select>
 
+          {/* Category filter */}
           <select
-            value={filter.category || ''}
-            onChange={(e) => setFilter({ ...filter, category: e.target.value as LogCategory || undefined })}
+            value={filter.category}
+            onChange={(e) => setFilter(f => ({ ...f, category: e.target.value as LogCategory | 'all' }))}
             style={{
               padding: '8px 12px',
               background: colors.charcoal,
               border: `1px solid ${colors.border}`,
               borderRadius: borderRadius.sm,
               color: colors.ivory,
-              fontSize: '13px',
+              fontSize: '12px',
             }}
           >
-            <option value="">Toate categoriile</option>
-            {categories.map(c => (
-              <option key={c} value={c}>{c.toUpperCase()}</option>
-            ))}
+            <option value="all">Toate categoriile</option>
+            <option value="auth">Auth</option>
+            <option value="order">Order</option>
+            <option value="payment">Payment</option>
+            <option value="menu">Menu</option>
+            <option value="system">System</option>
+            <option value="security">Security</option>
+            <option value="performance">Performance</option>
           </select>
+
+          <span style={{ 
+            fontSize: '12px', 
+            color: colors.textMuted,
+            padding: '0 8px',
+          }}>
+            {logs.length} logs
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <label style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px',
+            fontSize: '12px',
+            color: colors.textMuted,
+            cursor: 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={autoScroll}
+              onChange={(e) => setAutoScroll(e.target.checked)}
+            />
+            Auto-scroll
+          </label>
 
           <Button
-            variant={autoRefresh ? 'success' : 'ghost'}
+            variant={isPaused ? 'success' : 'ghost'}
             size="sm"
-            onClick={() => setAutoRefresh(!autoRefresh)}
+            onClick={() => setIsPaused(!isPaused)}
           >
-            {autoRefresh ? '🔄 Auto-refresh ON' : '⏸️ Auto-refresh OFF'}
+            {isPaused ? '▶ Resume' : '⏸ Pause'}
+          </Button>
+
+          <Button variant="ghost" size="sm" onClick={clearLogs}>
+            🗑️ Clear
           </Button>
 
           <Button variant="ghost" size="sm" onClick={loadLogs}>
-            🔃 Refresh
+            🔄 Refresh
           </Button>
         </div>
+      </div>
 
+      {/* Logs list */}
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        background: '#0d0d0f',
+      }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
             <Spinner />
@@ -114,77 +216,85 @@ export function LiveLogs({ venueId }: LiveLogsProps) {
         ) : logs.length === 0 ? (
           <EmptyState
             icon="📋"
-            title="Niciun log"
-            description="Nu există logs pentru filtrele selectate"
+            title="No logs"
+            description="Log-urile vor apărea aici în timp real"
           />
         ) : (
-          <Card variant="default" padding="none" style={{ overflow: 'hidden' }}>
-            <div style={{ maxHeight: '600px', overflow: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: colors.charcoal }}>
-                    <th style={thStyle}>Timp</th>
-                    <th style={thStyle}>Nivel</th>
-                    <th style={thStyle}>Categorie</th>
-                    <th style={thStyle}>Mesaj</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((log) => (
-                    <tr key={log.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                      <td style={tdStyle}>
-                        {new Date(log.created_at).toLocaleTimeString('ro-RO')}
-                      </td>
-                      <td style={tdStyle}>
-                        <span style={{ 
-                          color: levelColors[log.level], 
-                          fontWeight: 600,
-                          fontSize: '11px',
-                          textTransform: 'uppercase',
-                        }}>
-                          {log.level}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <Badge variant="premium" size="sm">{log.category}</Badge>
-                      </td>
-                      <td style={{ ...tdStyle, maxWidth: '400px' }}>
-                        <div style={{ color: colors.ivory }}>{log.message}</div>
-                        {log.details && Object.keys(log.details).length > 0 && (
-                          <pre style={{ 
-                            margin: '4px 0 0', 
-                            fontSize: '10px', 
-                            color: colors.textMuted,
-                            whiteSpace: 'pre-wrap',
-                          }}>
-                            {JSON.stringify(log.details, null, 2)}
-                          </pre>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <div style={{ padding: '8px' }}>
+            {logs.map((log, idx) => {
+              const config = levelConfig[log.level]
+              const time = new Date(log.created_at).toLocaleTimeString('ro-RO', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })
+
+              return (
+                <div
+                  key={log.id || idx}
+                  style={{
+                    padding: '6px 8px',
+                    borderBottom: `1px solid ${colors.border}`,
+                    display: 'flex',
+                    gap: '12px',
+                    alignItems: 'flex-start',
+                    background: log.level === 'error' || log.level === 'critical' 
+                      ? `${colors.error}10` 
+                      : 'transparent',
+                  }}
+                >
+                  <span style={{ color: colors.textMuted, minWidth: '70px' }}>
+                    {time}
+                  </span>
+                  <span style={{ minWidth: '20px' }}>
+                    {config.icon}
+                  </span>
+                  <span style={{ 
+                    minWidth: '60px',
+                    color: config.color,
+                    textTransform: 'uppercase',
+                    fontWeight: 600,
+                    fontSize: '10px',
+                  }}>
+                    {log.level}
+                  </span>
+                  <span style={{ minWidth: '20px' }}>
+                    {categoryIcons[log.category]}
+                  </span>
+                  <span style={{ 
+                    minWidth: '80px',
+                    color: colors.textSecondary,
+                    fontSize: '10px',
+                  }}>
+                    [{log.category}]
+                  </span>
+                  <span style={{ color: colors.ivory, flex: 1 }}>
+                    {log.message}
+                  </span>
+                  {log.details && Object.keys(log.details).length > 0 && (
+                    <details style={{ cursor: 'pointer' }}>
+                      <summary style={{ color: colors.champagne, fontSize: '10px' }}>
+                        details
+                      </summary>
+                      <pre style={{ 
+                        margin: '4px 0 0',
+                        padding: '8px',
+                        background: colors.charcoal,
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        overflow: 'auto',
+                      }}>
+                        {JSON.stringify(log.details, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              )
+            })}
+            <div ref={logsEndRef} />
+          </div>
         )}
-      </Section>
-    </div>
+      </div>
+    </Card>
   )
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  textAlign: 'left',
-  fontSize: '11px',
-  color: colors.textMuted,
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '12px 16px',
-  fontSize: '13px',
-  color: colors.textSecondary,
-  verticalAlign: 'top',
 }
