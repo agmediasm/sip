@@ -9,30 +9,42 @@ interface UseVenueReturn {
   error: string | null
 }
 
-// Detectează venue din subdomain
+// Detectează venue din subdomain sau query param
 function getVenueSlugFromHost(): string | null {
   if (typeof window === 'undefined') return null
   
   const hostname = window.location.hostname
+  const params = new URLSearchParams(window.location.search)
   
-  // Local development
+  // Query param override (pentru testing): ?venue=intooit
+  const venueParam = params.get('venue')
+  if (venueParam) return venueParam
+  
+  // Local development - default to 'intooit' or use query param
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // Poți folosi query param pentru test: ?venue=intooit
-    const params = new URLSearchParams(window.location.search)
-    return params.get('venue') || 'demo'
+    return 'intooit'
   }
   
-  // Production: subdomain.sip-app.ro
+  // Vercel preview URLs
+  if (hostname.includes('vercel.app')) {
+    return 'intooit'
+  }
+  
+  // Production: subdomain.sip-app.ro sau subdomain.domain.ro
   const parts = hostname.split('.')
+  
+  // Check for subdomain pattern (xxx.domain.tld)
   if (parts.length >= 3) {
     const subdomain = parts[0]
-    // Exclude admin, www, app
-    if (!['admin', 'www', 'app'].includes(subdomain)) {
+    // Exclude admin, www, app, sip
+    if (!['admin', 'www', 'app', 'sip'].includes(subdomain)) {
       return subdomain
     }
   }
   
-  return null
+  // Main domain without subdomain - use default venue
+  // This handles: sip-app.ro, www.sip-app.ro, app.sip-app.ro
+  return 'intooit'
 }
 
 export function useVenue(): UseVenueReturn {
